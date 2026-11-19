@@ -1794,97 +1794,24 @@ const renderChild = (element) => {
   store.delete("dsh-skill-mcp-panel:last-tab");
 }
 
-// ── 20. 顶部更新按钮（替代被动横幅）+ 一键自更新交互 ────────────────────────
+// ── 20. 顶部不再有更新按钮（更新走命令行 dsh-panel update）────────────────────
 {
-  let applyCalls = 0;
   let checkCalls = 0;
-  let shouldFailApply = false;
-  const updateFace = {
-    ...mcpFace,
-    checkUpdateRemote: async () => {
-      checkCalls++;
-      return { current: "2.3.12", latest: "2.4.0", updateAvailable: true, canSelfUpdate: true, profile: "desktop" };
-    },
-    applyUpdateRemote: async () => {
-      applyCalls++;
-      if (shouldFailApply) return { ok: false, current: "2.3.12", latest: "2.4.0", updatedTo: null, profile: "desktop", method: "remove+add", needsRestart: false, error: "boom" };
-      return { ok: true, current: "2.3.12", latest: "2.4.0", updatedTo: "2.4.0", profile: "desktop", method: "remove+add", needsRestart: true };
-    }
-  };
-  reset(skills, "skills");
-  let view = await mount(updateFace);
-  check("有新版本时技能页与 MCP 页都不再显示被动 SKV_notice 横幅", () => {
-    const notices = byClass(view.section, "SKV_noticeText").map((n) => String(n.props.children));
-    assert(!notices.some((txt) => txt.includes("2.4.0")), "unexpected passive update banner in skills tab: " + JSON.stringify(notices));
-  });
-  check("顶部右侧渲染「更新到 v2.4.0」按钮与版本对比提示", () => {
-    const btn = byClass(view.page, "SKV_updateBtn")[0];
-    const hint = byClass(view.page, "SKV_updateHint")[0];
-    assert(btn !== undefined && btn.props.children === "更新到 v2.4.0", "expected top update button, got " + JSON.stringify(btn?.props));
-    assert(btn.props["data-available"] === "true", "button should highlight available state");
-    assert(hint !== undefined && hint.props.children === "v2.3.12 → v2.4.0", "expected version hint, got " + JSON.stringify(hint?.props));
-  });
-
-  // 切到 MCP 页签也应保留顶部更新按钮且不显示被动横幅。
-  view.page.props.children[1].props.children[1].props.onClick();
-  await flush();
-  view = paint(updateFace);
-  check("MCP 页签同样保留顶部更新按钮且无被动更新横幅", () => {
-    const notices = byClass(view.section, "SKV_noticeText").map((n) => String(n.props.children));
-    assert(!notices.some((txt) => txt.includes("2.4.0")), "unexpected passive update banner in mcp tab: " + JSON.stringify(notices));
-    const btn = byClass(view.page, "SKV_updateBtn")[0];
-    assert(btn !== undefined && btn.props.children === "更新到 v2.4.0", "top update button lost on mcp tab");
-  });
-
-  // 失败路径：展示重试文案与错误提示。
-  shouldFailApply = true;
-  byClass(view.page, "SKV_updateBtn")[0].props.onClick();
-  await flush();
-  view = paint(updateFace);
-  check("点击更新失败时顶部提示错误并提供重试按钮", () => {
-    assert(applyCalls === 1, "expected 1 applyUpdate call");
-    const btn = byClass(view.page, "SKV_updateBtn")[0];
-    const hint = byClass(view.page, "SKV_updateHint")[0];
-    assert(btn.props.children === "重试更新 v2.4.0", "expected retry label, got " + btn.props.children);
-    assert(hint?.props["data-kind"] === "error" && hint.props.children === "更新失败：boom", "expected error hint, got " + JSON.stringify(hint?.props));
-  });
-
-  // 成功路径：点击重试触发 applyUpdateRemote 并切换已更新状态。
-  shouldFailApply = false;
-  byClass(view.page, "SKV_updateBtn")[0].props.onClick();
-  await flush();
-  view = paint(updateFace);
-  check("点击更新成功后切换为「已更新 v2.4.0」与重开提示", () => {
-    assert(applyCalls === 2, "expected retry applyUpdate call");
-    const btn = byClass(view.page, "SKV_updateBtn")[0];
-    const hint = byClass(view.page, "SKV_updateHint")[0];
-    assert(btn.props["data-done"] === "true" && btn.props.children === "已更新 v2.4.0", "expected done label, got " + JSON.stringify(btn?.props));
-    assert(hint?.props.children === "已安装新版本，重开面板或重启应用生效", "expected done hint, got " + JSON.stringify(hint?.props));
-  });
-
-  // 已是最新时：点击「检查更新」主动触发 checkUpdateRemote 并显示「已是最新」。
-  reset(skills, "skills");
-  checkCalls = 0;
-  const latestFace = {
+  const face = {
     ...rpc,
     checkUpdateRemote: async () => {
       checkCalls++;
-      return { current: "2.3.12", latest: "2.3.12", updateAvailable: false, canSelfUpdate: true };
+      return { current: "2.3.12", latest: "2.4.0", updateAvailable: true, canSelfUpdate: true };
     }
   };
-  view = await mount(latestFace);
-  check("已是最新时顶部显示「检查更新」按钮且静默不吵", () => {
-    const btn = byClass(view.page, "SKV_updateBtn")[0];
-    assert(btn?.props.children === "检查更新", "expected Check updates label, got " + btn?.props.children);
-    assert(byClass(view.page, "SKV_updateHint").length === 0, "idle/latest initial check should stay quiet");
+  reset(skills, "skills");
+  const view = await mount(face);
+  check("顶部不再渲染更新按钮与版本提示", () => {
+    assert(byClass(view.page, "SKV_updateBtn").length === 0, "update button must be gone");
+    assert(byClass(view.page, "SKV_updateHint").length === 0, "update hint must be gone");
   });
-  byClass(view.page, "SKV_updateBtn")[0].props.onClick();
-  await flush();
-  view = paint(latestFace);
-  check("手动点击「检查更新」重查并反馈「已是最新 v2.3.12」", () => {
-    assert(checkCalls >= 2, "manual click should re-run checkUpdateRemote");
-    const hint = byClass(view.page, "SKV_updateHint")[0];
-    assert(hint?.props.children === "已是最新 v2.3.12", "expected up-to-date hint, got " + JSON.stringify(hint?.props));
+  check("打开面板不再触发更新检查", () => {
+    assert(checkCalls === 0, "checkUpdateRemote must not run on mount, got " + checkCalls);
   });
   store.delete("dsh-skill-mcp-panel:last-tab");
 }

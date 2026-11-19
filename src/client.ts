@@ -172,7 +172,7 @@
 		const cssTheme = "body[data-ds-dark-theme] .SKV_switchThumb{background:#fff}body[data-ds-dark-theme] .SKV_switch[data-on=true] .SKV_switchThumb{background:#fff}";
 		// 主页主区面板（main 槽位）的整页外壳：宿主不给滚动容器与页边距，
 		// 这一层就是面板自己的「页面」。
-		const cssPage = ".SKV_page{box-sizing:border-box;height:100%;color:var(--dsw-alias-label-primary);flex-direction:column;align-items:center;gap:24px;padding:28px clamp(24px,4vw,48px) 48px;display:flex;overflow:auto}.SKV_page>*{width:100%;max-width:760px}.SKV_pageHead{flex-direction:column;gap:4px;display:flex}.SKV_pageTitle{margin:0;font-size:20px;font-weight:500;line-height:28px}.SKV_pageIntro{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;line-height:20px}.SKV_pageTop{min-height:20px;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;display:flex}.SKV_pageBack{font:inherit;font-size:12.5px;line-height:20px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;align-items:center;gap:6px;padding:0;display:inline-flex}.SKV_pageBack:hover{color:var(--dsw-alias-label-primary)}.SKV_pageBack:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.SKV_pageBack svg{flex:none}.SKV_updateWrap{margin-left:auto;align-items:center;gap:8px;flex-wrap:wrap;display:inline-flex}.SKV_updateHint{font-size:12px;line-height:18px;color:var(--dsw-alias-label-tertiary);max-width:340px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.SKV_updateHint[data-kind=error]{color:var(--dsw-alias-state-danger-primary,#ef4444)}.SKV_updateBtn{font:inherit;font-size:12px;line-height:18px;font-weight:500;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-container,transparent);border:1px solid var(--dsw-alias-border-l2);border-radius:999px;cursor:pointer;padding:3px 10px;align-items:center;gap:5px;display:inline-flex;transition:color .2s,border-color .2s,background-color .2s}.SKV_updateBtn:hover:not(:disabled){color:var(--dsw-alias-label-primary);border-color:var(--dsw-alias-border-l1,currentColor)}.SKV_updateBtn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.SKV_updateBtn:disabled{opacity:.65;cursor:default}.SKV_updateBtn[data-available=true]{color:var(--dsw-alias-state-business-primary);border-color:var(--dsw-alias-state-business-primary)}.SKV_updateBtn[data-done=true]{color:var(--dsw-alias-state-success-primary,#10b981);border-color:var(--dsw-alias-state-success-primary,#10b981)}.SKV_tabs{align-items:center;gap:4px;border-bottom:1px solid var(--dsw-alias-border-l2);display:flex;flex-wrap:wrap}.SKV_tab{font:inherit;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:6px 12px;display:inline-flex;align-items:center}.SKV_tab:hover{color:var(--dsw-alias-label-primary)}.SKV_tab[data-active=true]{color:var(--dsw-alias-label-primary);border-bottom-color:var(--dsw-alias-state-business-primary);font-weight:500}.SKV_tab:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}";
+		const cssPage = ".SKV_page{box-sizing:border-box;height:100%;color:var(--dsw-alias-label-primary);flex-direction:column;align-items:center;gap:24px;padding:28px clamp(24px,4vw,48px) 48px;display:flex;overflow:auto}.SKV_page>*{width:100%;max-width:760px}.SKV_pageHead{flex-direction:column;gap:4px;display:flex}.SKV_pageTitle{margin:0;font-size:20px;font-weight:500;line-height:28px}.SKV_pageIntro{color:var(--dsw-alias-label-secondary);margin:0;font-size:13px;line-height:20px}.SKV_pageTop{min-height:20px;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;display:flex}.SKV_pageBack{font:inherit;font-size:12.5px;line-height:20px;color:var(--dsw-alias-label-tertiary);cursor:pointer;background:0 0;border:0;align-items:center;gap:6px;padding:0;display:inline-flex}.SKV_pageBack:hover{color:var(--dsw-alias-label-primary)}.SKV_pageBack:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}.SKV_pageBack svg{flex:none}.SKV_tabs{align-items:center;gap:4px;border-bottom:1px solid var(--dsw-alias-border-l2);display:flex;flex-wrap:wrap}.SKV_tab{font:inherit;font-size:13px;line-height:20px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:0 0;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:6px 12px;display:inline-flex;align-items:center}.SKV_tab:hover{color:var(--dsw-alias-label-primary)}.SKV_tab[data-active=true]{color:var(--dsw-alias-label-primary);border-bottom-color:var(--dsw-alias-state-business-primary);font-weight:500}.SKV_tab:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px}";
 		const cssPanelIcon = ".SKV_panelIcon{flex:none;display:inline-block;background-color:currentColor}.SKV_panelIconMerged{-webkit-mask:url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' width='96' height='96' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><path d='M12 5H28L38 15V41a2 2 0 0 1-2 2H12a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z'/><path d='M28 5V13a2 2 0 0 0 2 2H38'/><path d='M17 29L23 23A2.83 2.83 0 0 1 27 27L21 33A2.83 2.83 0 0 0 25 37L31 31'/></svg>\") center/contain no-repeat;mask:url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' width='96' height='96' fill='none' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><path d='M12 5H28L38 15V41a2 2 0 0 1-2 2H12a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z'/><path d='M28 5V13a2 2 0 0 0 2 2H38'/><path d='M17 29L23 23A2.83 2.83 0 0 1 27 27L21 33A2.83 2.83 0 0 0 25 37L31 31'/></svg>\") center/contain no-repeat}";
 		const cssMigrate = ".SKV_scopeBar{gap:6px;padding:2px;max-width:100%;overflow-x:auto;scrollbar-width:thin;display:flex;align-items:center}.SKV_migrateSection{flex-direction:column;gap:6px;display:flex}.SKV_migrateLabel{color:var(--dsw-alias-label-secondary);font-size:12px;line-height:18px;margin:0}.SKV_migrateFromValue{color:var(--dsw-alias-label-primary);font-size:13px;line-height:20px;margin:0;word-break:break-all}.SKV_migrateList{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;max-height:220px;overflow-y:auto;margin:0;padding:4px;list-style:none;display:flex;flex-direction:column;gap:2px}.SKV_migrateItem{font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border:none;border-radius:6px;padding:6px 10px;font-size:13px;line-height:20px;text-align:left;display:flex;align-items:center;gap:8px}.SKV_migrateItem:hover{background:var(--dsw-alias-interactive-bg-hover)}.SKV_migrateItem input{margin:0;accent-color:var(--dsw-alias-state-business-primary)}.SKV_migrateItemName{flex:1;min-width:0;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.SKV_migrateItemState{color:var(--dsw-alias-label-tertiary);font-size:11px;flex:none}.SKV_migrateSelectAll{font:inherit;color:var(--dsw-alias-state-business-primary);cursor:pointer;background:0 0;border:none;padding:0;font-size:12px;line-height:18px}.SKV_migrateHint{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px;margin:0}.SKV_migrateResult{border-radius:8px;padding:8px 12px;font-size:12px;line-height:18px;margin:0}.SKV_migrateResult[data-ok=true]{background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 10%, transparent);color:var(--dsw-alias-state-success-primary)}.SKV_migrateResult[data-ok=false]{background:color-mix(in srgb, var(--dsw-alias-state-warning-primary) 10%, transparent);color:var(--dsw-alias-state-warning-primary)}.SKV_migrateResultList{margin:4px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px;max-height:120px;overflow-y:auto}.SKV_wsPath{min-width:0;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;display:block}.SKV_migrateOptionLabel{min-width:0;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}.SKV_scopeOptions{max-height:132px;overflow-y:auto;scrollbar-width:thin}.SKV_migrateList{max-height:148px}.SKV_scopeBox{overflow-y:auto;scrollbar-width:thin}.SKV_select{width:100%;box-sizing:border-box;height:32px;font:inherit;font-size:13px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);border-radius:8px;padding:0 8px}.SKV_select:focus-visible{border-color:var(--dsw-alias-state-business-primary);box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-state-business-primary) 18%, transparent);outline:none}.SKV_groupBody{display:flex;gap:16px;min-height:0}.SKV_groupSide{width:150px;flex:none;display:flex;flex-direction:column;gap:2px;min-width:0}.SKV_groupNewBtn{display:flex;align-items:center;gap:6px;justify-content:flex-start;font:inherit;font-size:13px;color:var(--dsw-alias-state-business-primary);cursor:pointer;background:0 0;border:1px dashed var(--dsw-alias-border-l1);border-radius:8px;padding:7px 10px;margin-bottom:6px;text-align:left}.SKV_groupNewBtn:hover{background:var(--dsw-alias-interactive-bg-hover)}.SKV_groupSideLabel{font-size:12px;color:var(--dsw-alias-label-tertiary);padding:0 10px;margin-bottom:2px}.SKV_groupSideItem{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;font:inherit;font-size:13px;cursor:pointer;color:var(--dsw-alias-label-secondary);background:0 0;border:none;text-align:left;min-width:0}.SKV_groupSideItem:hover{background:var(--dsw-alias-interactive-bg-hover)}.SKV_groupSideItem[data-active=true]{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);color:var(--dsw-alias-state-business-primary);font-weight:500}.SKV_groupMain{flex:1;min-width:0;display:flex;flex-direction:column;gap:12px}.SKV_field{display:flex;flex-direction:column;gap:6px}.SKV_fieldLabel{font-size:12px;color:var(--dsw-alias-label-secondary);margin:0}.SKV_skillListBox{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;padding:0 10px;max-height:220px;overflow-y:auto}.SKV_skillRow{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:0.5px solid var(--dsw-alias-border-l2);font:inherit;color:var(--dsw-alias-label-primary);cursor:pointer;min-width:0}.SKV_skillRow:last-child{border-bottom:none}.SKV_skillRow:hover{background:var(--dsw-alias-interactive-bg-hover)}.SKV_skillRow input{margin:0;accent-color:var(--dsw-alias-state-business-primary);flex:none}.SKV_skillName{flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.SKV_skillBadge{font-size:12px;padding:2px 8px;border-radius:5px;white-space:nowrap;flex:none}.SKV_skillBadge[data-on=true]{background:color-mix(in srgb, var(--dsw-alias-state-success-primary) 12%, transparent);color:var(--dsw-alias-state-success-primary)}.SKV_skillBadge[data-on=false]{background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-tertiary)}.SKV_countRow{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}.SKV_countText{font-size:12px;color:var(--dsw-alias-label-secondary);margin:0}.SKV_dialogFooter{display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:0.5px solid var(--dsw-alias-border-l2)}.SKV_dangerBtn{font:inherit;font-size:13px;color:var(--dsw-alias-state-error-primary);cursor:pointer;background:0 0;border:1px solid transparent;border-radius:6px;padding:5px 10px}.SKV_dangerBtn:hover:not(:disabled){background:color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent)}.SKV_dangerBtn:disabled{cursor:default;opacity:.6}.SKV_textInput{width:100%;box-sizing:border-box;height:32px;font:inherit;font-size:13px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);border-radius:8px;outline:none;padding:0 10px}.SKV_textInput::placeholder{color:var(--dsw-alias-label-tertiary)}.SKV_textInput:focus-visible{border-color:var(--dsw-alias-state-business-primary);box-shadow:0 0 0 2px color-mix(in srgb, var(--dsw-alias-state-business-primary) 18%, transparent)}.SKV_scopeBox{width:640px}.SKV_groupSide{width:170px}.SKV_groupSideItem{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.SKV_select{appearance:none;-webkit-appearance:none;width:100%;box-sizing:border-box;height:32px;font:inherit;font-size:13px;color:var(--dsw-alias-label-primary);background-color:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);border-radius:8px;padding:0 30px 0 10px;background-image:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2712%27 height=%2712%27 viewBox=%270 0 16 16%27 fill=%27none%27%3E%3Cpath d=%27M4 6l4 4 4-4%27 stroke=%27%23888%27 stroke-width=%271.6%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 10px center}.SKV_select:hover{border-color:var(--dsw-alias-border-l1)}.SKV_targetBox{border:1px solid var(--dsw-alias-border-l2);border-radius:8px;padding:4px;max-height:152px;overflow-y:auto;scrollbar-width:thin}.SKV_targetItem{display:flex;align-items:center;gap:8px;padding:7px 6px;font:inherit;font-size:13px;color:var(--dsw-alias-label-primary);cursor:pointer;background:0 0;border:none;border-bottom:0.5px solid var(--dsw-alias-border-l2);width:100%;text-align:left;min-width:0}.SKV_targetItem:last-child{border-bottom:none}.SKV_targetItem:hover{background:var(--dsw-alias-interactive-bg-hover)}.SKV_targetItem[data-active=true]{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 8%, transparent)}.SKV_targetItem input{margin:0;accent-color:var(--dsw-alias-state-business-primary);flex:none}.SKV_skillListBox{max-height:180px};.SKV_groupBar{gap:6px;padding:2px;display:flex;flex-wrap:wrap;align-items:center}.SKV_groupItem{font:inherit;color:var(--dsw-alias-label-secondary);cursor:pointer;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);border-radius:999px;padding:3px 11px;font-size:12px;line-height:18px;white-space:nowrap;flex:none}.SKV_groupItem:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover);border-color:var(--dsw-alias-border-l1)}.SKV_groupItem[data-active=true]{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary);font-weight:500}.SKV_groupSep{display:none}.SKV_scopeSelect{display:inline-flex;align-items:center;gap:12px;box-sizing:border-box;height:36px;max-width:100%;padding:0 14px;border:none;border-radius:18px;background:var(--dsw-alias-bg-module-platform);font:inherit;font-size:14px;line-height:22px;color:var(--dsw-alias-label-primary);cursor:pointer}.SKV_scopeSelect:hover{background:var(--dsw-alias-interactive-bg-hover)}.SKV_scopeSelectLabel{min-width:0;max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.SKV_scopeSelectChevron{flex:none;color:var(--dsw-alias-label-tertiary)}";
 const cssCategory = ".SKV_categoryBar{display:flex;align-items:center;gap:6px;margin-bottom:6px;flex-wrap:wrap}.SKV_categoryLabel{font-size:12px;color:var(--dsw-alias-label-tertiary);flex:none;margin-right:2px}.SKV_categoryChip{font:inherit;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);cursor:pointer;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);border-radius:999px;padding:2px 10px;white-space:nowrap;flex:none}.SKV_categoryChip:hover{background:var(--dsw-alias-interactive-bg-hover)}.SKV_categoryChip[data-active=true]{background:color-mix(in srgb, var(--dsw-alias-state-business-primary) 12%, transparent);border-color:var(--dsw-alias-state-business-primary);color:var(--dsw-alias-state-business-primary)}";
@@ -342,9 +342,6 @@ const cssGroups = ".SKV_groupItemWrap{position:relative;display:inline-flex;alig
 			pageTitle: "SKV_pageTitle",
 			pageIntro: "SKV_pageIntro",
 			pageTop: "SKV_pageTop",
-			updateWrap: "SKV_updateWrap",
-			updateHint: "SKV_updateHint",
-			updateBtn: "SKV_updateBtn",
 			pageBack: "SKV_pageBack",
 			section: "SKV_section",
 			status: "SKV_status",
@@ -5797,122 +5794,8 @@ function mcpWireScalar(text) {
 		function CombinedPanelPage(props) {
 			const t = props.t;
 			const mt = props.mt;
-			const checkUpdateRemote = props.checkUpdateRemote;
-			const applyUpdateRemote = props.applyUpdateRemote;
 			const tr = (key) => (t !== null && t !== undefined ? t(key) : "");
 			const [tab, setTab] = react.useState(readLastTab);
-			const [updateState, setUpdateState] = react.useState({
-				phase: "idle",
-				current: "",
-				latest: null,
-				updatedTo: null,
-				canSelfUpdate: true,
-				manual: false,
-				error: null
-			});
-			const applyCheckSnapshot = (snapshot, manual) => {
-				const s = snapshot !== null && typeof snapshot === "object" ? snapshot : null;
-				const current = s !== null && typeof s.current === "string" ? s.current : "";
-				const latest = s !== null && typeof s.latest === "string" ? s.latest : null;
-				const available = s !== null && s.updateAvailable === true && latest !== null;
-				const canSelfUpdate = s !== null && typeof s.canSelfUpdate === "boolean" ? s.canSelfUpdate : true;
-				const checkErr = s !== null && typeof s.error === "string" && s.error !== "" ? s.error : null;
-				setUpdateState((prev) => {
-					if (prev.phase === "updating" || prev.phase === "done") return prev;
-					if (available) {
-						return { phase: "available", current, latest, updatedTo: null, canSelfUpdate, manual, error: null };
-					}
-					if (manual && checkErr !== null) {
-						return { phase: "error", current, latest, updatedTo: null, canSelfUpdate, manual: true, error: checkErr };
-					}
-					return {
-						phase: current !== "" ? "latest" : "idle",
-						current,
-						latest,
-						updatedTo: null,
-						canSelfUpdate,
-						manual,
-						error: null
-					};
-				});
-			};
-			const runCheckUpdate = (manual = false) => {
-				if (typeof checkUpdateRemote !== "function") return;
-				if (manual) {
-					setUpdateState((prev) => ({ ...prev, phase: "checking", manual: true, error: null }));
-				}
-				Promise.resolve().then(() => checkUpdateRemote()).then((snapshot) => {
-					applyCheckSnapshot(snapshot, manual);
-				}, (err) => {
-					if (!manual) return;
-					const msg = err instanceof Error ? err.message : String(err ?? "network error");
-					setUpdateState((prev) => ({ ...prev, phase: "error", manual: true, error: msg }));
-				});
-			};
-			react.useEffect(() => {
-				let active = true;
-				if (typeof checkUpdateRemote !== "function") return;
-				Promise.resolve().then(() => checkUpdateRemote()).then((snapshot) => {
-					if (active) applyCheckSnapshot(snapshot, false);
-				}, () => {
-					// 启动静默检查遇到网络问题不弹窗，保留右上角按钮供手动检查/更新。
-				});
-				return () => { active = false; };
-			}, [checkUpdateRemote]);
-			const triggerApplyUpdate = (targetLatest) => {
-				setUpdateState((prev) => ({ ...prev, phase: "updating", manual: true, error: null }));
-				Promise.resolve().then(() => applyUpdateRemote()).then((res) => {
-					const r = res !== null && typeof res === "object" ? res : null;
-					if (r !== null && r.ok === true) {
-						const updatedTo = typeof r.updatedTo === "string" && r.updatedTo !== "" ? r.updatedTo : targetLatest;
-						setUpdateState((prev) => ({
-							...prev,
-							phase: r.alreadyLatest === true ? "latest" : "done",
-							current: r.alreadyLatest === true ? (updatedTo ?? prev.current) : prev.current,
-							latest: r.alreadyLatest === true ? updatedTo : prev.latest,
-							updatedTo,
-							manual: true,
-							error: null
-						}));
-						return;
-					}
-					const errMsg = r !== null && typeof r.error === "string" && r.error !== "" ? r.error : "unknown error";
-					setUpdateState((prev) => ({ ...prev, phase: "error", manual: true, error: errMsg }));
-				}, (err) => {
-					const msg = err instanceof Error ? err.message : String(err ?? "unknown error");
-					setUpdateState((prev) => ({ ...prev, phase: "error", manual: true, error: msg }));
-				});
-			};
-			const onUpdateClick = () => {
-				if (updateState.phase === "checking" || updateState.phase === "updating") return;
-				if ((updateState.phase === "available" || updateState.phase === "error") && updateState.latest !== null && typeof applyUpdateRemote === "function") {
-					triggerApplyUpdate(updateState.latest);
-					return;
-				}
-				runCheckUpdate(true);
-			};
-			const updateBtnLabel = updateState.phase === "checking"
-				? tr("updateCheckingBtn")
-				: updateState.phase === "updating"
-					? tr("updateApplyingBtn")
-					: updateState.phase === "done"
-						? tr("updateDoneBtn") + (updateState.updatedTo ?? updateState.latest ?? "")
-						: updateState.phase === "available"
-							? tr("updateApplyBtn") + (updateState.latest ?? "")
-							: updateState.phase === "error" && updateState.latest !== null
-								? tr("updateRetryBtn") + updateState.latest
-								: tr("updateCheckBtn");
-			const updateHintText = updateState.phase === "error"
-				? tr("updateFailed") + (updateState.error ?? "")
-				: updateState.phase === "done"
-					? tr("updateDoneHint")
-					: updateState.phase === "latest" && updateState.manual && (updateState.current !== "" || updateState.latest !== null)
-						? tr("updateUpToDate") + (updateState.current !== "" ? updateState.current : updateState.latest)
-						: updateState.phase === "available" && updateState.canSelfUpdate === false
-							? tr("updateCliHint")
-							: updateState.phase === "available" && updateState.current !== ""
-								? "v" + updateState.current + " → v" + updateState.latest
-								: "";
 			const select = (next) => {
 				setTab(next);
 				writeLastTab(next);
@@ -5934,24 +5817,7 @@ function mcpWireScalar(text) {
 				"data-tab": tab,
 				children: [(0, react_jsx_runtime.jsxs)("div", {
 					className: c.pageTop,
-					children: [(0, react_jsx_runtime.jsx)(PageBack, { label: tr("back"), onBack: props.backToConversation }), (0, react_jsx_runtime.jsxs)("div", {
-						className: c.updateWrap,
-						children: [updateHintText !== "" ? (0, react_jsx_runtime.jsx)("span", {
-							className: c.updateHint,
-							"data-kind": updateState.phase === "error" ? "error" : "info",
-							title: updateState.error ?? updateHintText,
-							children: updateHintText
-						}) : null, (0, react_jsx_runtime.jsx)("button", {
-							type: "button",
-							className: c.updateBtn,
-							"data-available": updateState.phase === "available" ? "true" : "false",
-							"data-done": updateState.phase === "done" ? "true" : "false",
-							disabled: updateState.phase === "checking" || updateState.phase === "updating",
-							title: updateState.current !== "" ? "v" + updateState.current : tr("updateCheckBtn"),
-							onClick: onUpdateClick,
-							children: updateBtnLabel
-						})]
-					})]
+					children: [(0, react_jsx_runtime.jsx)(PageBack, { label: tr("back"), onBack: props.backToConversation })]
 				}), (0, react_jsx_runtime.jsxs)("div", {
 					className: c.tabs,
 					role: "tablist",
