@@ -2746,7 +2746,20 @@ function SkillsSection(props) {
 							// 启停开关用宿主自带的凭据组件（primitives.Switch）：和 DSH 设置页
 							// 的开关同一份实现，不再是自绘的红绿灯。宿主没提供该组件时退回
 							// 旧的红绿灯按钮，面板照常可用。
-							children: [editable ? (typeof primitives.Switch === "function" ? (0, react_jsx_runtime.jsx)(primitives.Switch, {
+							children: [op?.status === "error" ? (0, react_jsx_runtime.jsx)("span", {
+								className: c.opError,
+								children: t("opFailed")
+							}) : null, editable ? (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								className: c.rowDelete,
+								"aria-label": t("deleteLabel") + " " + skill.name,
+								title: t("deleteLabel"),
+								disabled: op?.status === "busy",
+								onClick: () => {
+									applyRemove(skill);
+								},
+								children: hostIcon(primitiveIcon("IconTrashOutlineRegular"), 14, ICON_PATHS.trash)
+							}) : null, editable ? (typeof primitives.Switch === "function" ? (0, react_jsx_runtime.jsx)(primitives.Switch, {
 								checked: enabled,
 								onChange: (next) => {
 									if (next !== enabled) applySetEnabled(skill);
@@ -2779,20 +2792,7 @@ function SkillsSection(props) {
 								className: c.configTag,
 								"data-enabled": enabled ? "true" : "false",
 								children: enabled ? t("enabledTag") : t("disabledTag")
-							}), op?.status === "error" ? (0, react_jsx_runtime.jsx)("span", {
-								className: c.opError,
-								children: t("opFailed")
-							}) : null, editable ? (0, react_jsx_runtime.jsx)("button", {
-								type: "button",
-								className: c.rowDelete,
-								"aria-label": t("deleteLabel") + " " + skill.name,
-								title: t("deleteLabel"),
-								disabled: op?.status === "busy",
-								onClick: () => {
-									applyRemove(skill);
-								},
-								children: hostIcon(primitiveIcon("IconTrashOutlineRegular"), 14, ICON_PATHS.trash)
-							}) : null]
+							})]
 						})]
 					}), open ? (0, react_jsx_runtime.jsxs)("div", {
 						className: c.cardDetails,
