@@ -533,7 +533,7 @@ const cssGroups = ".SKV_groupItemWrap{position:relative;display:inline-flex;alig
 			contentMissing: "技能内容不可用。",
 			providerLabel: "来源",
 			enabledTag: "已启用",
-			pluginSwitchHint: "由插件随包提供，无法在此启用或停用",
+			pluginSwitchHint: "随包技能：对所有对话生效",
 			tokenChipHint: "这个技能加载后的正文成本",
 			tokenCatalogHint: "目录行成本",
 			tokenTotalHint: "所有列出技能的正文总成本",
@@ -676,7 +676,7 @@ const cssGroups = ".SKV_groupItemWrap{position:relative;display:inline-flex;alig
 			contentMissing: "Skill content is unavailable.",
 			providerLabel: "Provider",
 			enabledTag: "Enabled",
-			pluginSwitchHint: "Shipped by a plugin — cannot be toggled here",
+			pluginSwitchHint: "Shipped by a plugin — toggles it for every conversation",
 			tokenChipHint: "Tokens this skill body weighs when loaded",
 			tokenCatalogHint: "its catalog line costs",
 			tokenTotalHint: "Tokens every listed skill body weighs in total",
@@ -2657,6 +2657,8 @@ function SkillsSection(props) {
 			const treeRoot = buildSkillTree(filtered);
 			// 可编辑判定：bundled / runtime / 插件随包自带（pluginProvided）技能不可就地启停或删除。
 			const isEditableSkill = (skill) => skill.source !== "bundled" && skill.source !== "runtime" && skill.pluginProvided !== true;
+			// 开关对所有列出的技能都可用：文件技能改名停用，随包技能由宿主在注册表层面隐藏。
+			const isSwitchableSkill = (skill) => skill !== null && skill !== undefined;
 			// 卡片行（v2.1.6）：[勾选框][图标][名称 + 描述][红绿灯 + 删除]。
 			// 展开详情的入口是中间那块文字按钮；批量模式下点它等于勾选（与设计稿一致）。
 			const renderCard = (skill) => {
@@ -2767,10 +2769,12 @@ function SkillsSection(props) {
 								children: [(0, react_jsx_runtime.jsx)("i", { className: c.trafficDot + " " + c.trafficRed }), (0, react_jsx_runtime.jsx)("i", { className: c.trafficDot + " " + c.trafficGreen })]
 							})) : typeof primitives.Switch === "function" ? (0, react_jsx_runtime.jsx)(primitives.Switch, {
 								checked: enabled,
-								onChange: () => {},
+								onChange: (next) => {
+									if (next !== enabled) applySetEnabled(skill);
+								},
 								label: (enabled ? t("switchDisable") : t("switchEnable")) + " " + skill.name,
 								title: t("pluginSwitchHint"),
-								disabled: true
+								disabled: op?.status === "busy"
 							}) : (0, react_jsx_runtime.jsx)("span", {
 								className: c.configTag,
 								"data-enabled": enabled ? "true" : "false",
@@ -2852,8 +2856,8 @@ function SkillsSection(props) {
 					const countOf = (rows) => ({
 						total: rows.length,
 						on: rows.reduce((sum, skill) => sum + (skill.enabled === true ? 1 : 0), 0),
-						editable: rows.reduce((sum, skill) => sum + (isEditableSkill(skill) ? 1 : 0), 0),
-						editableOn: rows.reduce((sum, skill) => sum + (isEditableSkill(skill) && skill.enabled === true ? 1 : 0), 0)
+						editable: rows.reduce((sum, skill) => sum + (isSwitchableSkill(skill) ? 1 : 0), 0),
+						editableOn: rows.reduce((sum, skill) => sum + (isSwitchableSkill(skill) && skill.enabled === true ? 1 : 0), 0)
 					});
 					const groupCount = (group) => countOf(membersOfGroup(group));
 					const allCounts = countOf(scoped);
@@ -2866,10 +2870,10 @@ function SkillsSection(props) {
 			// 整组开关：统一设成目标值（可编辑成员并非全部开启 → 全开，否则全关）。
 			// 只对可编辑成员发 RPC；整批只挂一次热刷新；逐项失败记进 ops，成功的继续。
 					const applyBulkToggle = (rows, key) => {
-						const editable = rows.filter(isEditableSkill);
-						if (editable.length === 0) return;
-						const target = !editable.every((skill) => skill.enabled === true);
-						const pending = editable.filter((skill) => (skill.enabled === true) !== target);
+						const switchable = rows.filter(isSwitchableSkill);
+						if (switchable.length === 0) return;
+						const target = !switchable.every((skill) => skill.enabled === true);
+						const pending = switchable.filter((skill) => (skill.enabled === true) !== target);
 						if (pending.length === 0) return;
 						setBulkGroup(key);
 						Promise.all(pending.map((skill) => runSetEnabled(skill, target))).then((results) => {

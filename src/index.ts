@@ -42,6 +42,7 @@ import { ensureGlobalShim } from "./global-shim.js";
 import { MCP_MANIFEST } from "./mcp/wire.js";
 import { NestedSkillProvider, NESTED_SKILL_RANK, NESTED_PROVIDER_NAME } from "./provider.js";
 import { OAuthRefreshScheduler } from "./oauth-scheduler.js";
+import { attachSkillDisable, type SkillDisableController } from "./skill-disable.js";
 
 /**
  * dsh-skill-mcp-panel —— 宿主半区。
@@ -401,6 +402,8 @@ const MAX_ADD_TOTAL_BYTES = 8 * 1024 * 1024;
  * 让 API 网关可以分发端点。
  */
 export class SkillsViewerGateway extends TypertRemoteService {
+  /** 随包技能的启停控制器：list 标记状态，setEnabled 落盘。 */
+  skillDisable?: SkillDisableController;
   constructor(ctx) {
     super(ctx, "skillsViewer");
   }
@@ -569,7 +572,7 @@ export class SkillsViewerGateway extends TypertRemoteService {
     // 列表（通常最慢：要读大量 SKILL.md 与分析 frontmatter）、分组配置。
     const [roots, listed, groupMap] = await Promise.all([
       this.allRoots(),
-      registry.list({ cwd, scope }),
+      registry.list({ cwd, scope, includeDisabled: true }),
       loadGroups(home)
     ]);
     const fileEntries = await collectSkillEntries(roots);
@@ -595,7 +598,7 @@ export class SkillsViewerGateway extends TypertRemoteService {
         ...(skill.whenToUse === undefined ? {} : { whenToUse: skill.whenToUse }),
         provider: skill.provider,
         source,
-        enabled: true,
+        enabled: this.skillDisable?.isDisabled(skill.name) !== true,
         modelInvocable: skill.invocation.modelInvocable,
         userInvocable: skill.invocation.userInvocable,
         scope: { kind: "global" },
@@ -631,7 +634,7 @@ export class SkillsViewerGateway extends TypertRemoteService {
     const priced = await Promise.all(skills.map(async (row) => {
       let chars = 0;
       try {
-        const definition = await registry.get(row.name, { cwd, scope });
+        const definition = await registry.get(row.name, { cwd, scope, includeDisabled: true });
         if (typeof definition?.content === "string") chars = definition.content.length;
       } catch {
         chars = 0;
@@ -838,7 +841,7 @@ export class SkillsViewerGateway extends TypertRemoteService {
   /** 定位技能：注册表在线行、普通文件条目，或不存在。 */
   async locate(name, sessionId) {
     const { registry, cwd, scope } = this.viewFor(sessionId);
-    const skill = await registry.get(name, { cwd, scope });
+    const skill = await registry.get(name, { cwd, scope, includeDisabled: true });
     if (skill !== undefined && this.workspaceOfPath(skill.path, await this.allRoots()) === undefined) return { kind: "live", skill };
     const entry = winnerEntry(await this.fileEntriesAll(), name);
     if (entry !== undefined) return { kind: "file", entry };
@@ -937,7 +940,15 @@ export class SkillsViewerGateway extends TypertRemoteService {
     if (located.kind === "missing") throw new Error('技能 "' + name + '" 不存在');
     if (located.kind === "live") {
       const skill = located.skill;
-      this.assertEditable(skill, await this.allRoots());
+      const roots = await this.allRoots();
+      // 随包/插件提供的技能没有可改名的文件：改为在注册表层面隐藏这个名字，
+      // 模型技能目录、`/` 菜单与 skill 工具都随之看不到它。
+      if (this.isPluginProvided(skill, roots) || skill.source === "bundled" || skill.source === "runtime" || typeof skill.path !== "string") {
+        if (this.skillDisable === undefined) throw new Error('技能 "' + name + '" 由插件提供，当前不可启停');
+        await this.skillDisable.set(name, !enabled);
+        return { name, enabled };
+      }
+      this.assertEditable(skill, roots);
       if (enabled) return { name, enabled: true };
       const target = skill.path + DISABLED_SUFFIX;
       if (await pathExists(target)) throw new Error("目标文件已存在：" + target);
@@ -1240,7 +1251,8 @@ export class SkillsViewerGateway extends TypertRemoteService {
 
 export function apply(ctx: any) {
   ensureGlobalShim(ctx.logger);
-  new SkillsViewerGateway(ctx);
+  const panelGateway = new SkillsViewerGateway(ctx);
+  panelGateway.skillDisable = attachSkillDisable(ctx, resolveDshHome());
   // 单工具禁用与作用域分层（Issue #44 / #55）：控制器按 agent 作用域施加限制，网关负责读写配置。
   const filterRef: { current: ToolFilterController | undefined } = { current: undefined };
   const toolFilterAdapter = {

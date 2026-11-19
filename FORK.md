@@ -102,3 +102,21 @@ Releases de ce dépôt.
 - L'estimation de tokens est mesurée quand la conversation a déjà envoyé une
   requête, assemblée sinon — le panneau indique toujours lequel des deux cas
   s'applique.
+
+## Désactiver les skills fournies par DeepSeek
+
+Le panneau ne peut pas renommer un fichier fourni par le paquet de l'application
+(`dsh-doc`, `office`, `office-docx`, `office-pptx`, `office-xlsx`). Pour ces
+lignes, le switch du panneau n'agit donc pas sur le disque : le host installe un
+filtre sur le service `skills` du harnais.
+
+- `skills.list` / `skills.snapshot` masquent les noms désactivés (donc le
+  catalogue envoyé au modèle, le menu `/` et l'outil `skill`) ;
+- `skills.get` renvoie `undefined` pour ces noms ;
+- le panneau lit avec `includeDisabled: true`, ce qui lui permet de continuer à
+  afficher la ligne et son switch.
+
+L'état vit dans `$DSH_HOME/dsh-skill-mcp-panel/disabled-skills.json` et vaut pour
+toutes les conversations. Le filtre est retiré proprement quand le plugin
+s'arrête. Fonctionne aussi pour les skills fournies par un preset (comme
+`dsh-doc`) : c'est une décision du registre, pas une modification de fichier.

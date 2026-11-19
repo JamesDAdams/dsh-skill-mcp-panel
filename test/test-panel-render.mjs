@@ -88,6 +88,7 @@ vm.runInContext(source, sandbox, { filename: "lib/client.js" });
 // ── 带状态的 react 桩 ──────────────────────────────────────────────────────
 const jsx = (type, props) => ({ type, props: props ?? {} });
 const MenuStub = function Menu(props) { return { __menu: true, props: props ?? {} }; };
+const SwitchStub = function Switch(props) { return { __switch: true, props: props ?? {} }; };
 const slots = new Map();
 const refs = new Map();
 let cursor = 0;
@@ -122,6 +123,7 @@ const requireStub = (specifier) => {
     const icon = (props) => ({ __icon: true, props: props ?? {} });
     return {
       Menu: MenuStub,
+      Switch: SwitchStub,
       IconSkillOutlineRegular: icon,
       IconChevronDownOutlineRegular: icon,
       IconChevronLeftOutlineRegular: icon,
@@ -384,11 +386,10 @@ const assert = (cond, message) => { if (!cond) throw new Error(message); };
     const text = byClass(cards[0], "SKV_rowText")[0];
     assert(text.props.children.length === 2, "name + description expected inside the text cell");
   });
-  check("traffic-light switch replaces the round switch on skill cards", () => {
-    const traffic = byClass(view.section, "SKV_traffic");
-    assert(traffic.length > 0, "traffic switch missing");
-    const dots = traffic[0].props.children.map((child) => child.props.className);
-    assert(dots[0].includes("SKV_trafficRed") && dots[1].includes("SKV_trafficGreen"), "red/green dots missing: " + JSON.stringify(dots));
+  check("skill cards use the host Switch", () => {
+    const switches = findAll(view.section, (n) => n.type === SwitchStub);
+    assert(switches.length === 4, "expected one switch per card, got " + switches.length);
+    assert(byClass(view.section, "SKV_traffic").length === 0, "traffic switch must be gone");
     assert(byClass(view.section, "SKV_switch").length === 0, "old round switch still rendered on the skills page");
     assert(byClass(view.section, "SKV_rowDelete").length === 3, "bundled skills must not offer delete; got " + byClass(view.section, "SKV_rowDelete").length);
   });
@@ -396,8 +397,8 @@ const assert = (cond, message) => { if (!cond) throw new Error(message); };
     const beta = byClass(view.section, "SKV_card").find((card) => card.props["data-skill-name"] === "beta");
     const name = byClass(beta, "SKV_rowName")[0];
     assert(name.props["data-disabled"] === "true", "beta is disabled and its name should be dimmed");
-    const traffic = byClass(beta, "SKV_traffic")[0];
-    assert(traffic.props["data-on"] === "false", "traffic switch must show the red light for a disabled skill");
+    const sw = findAll(beta, (n) => n.type === SwitchStub)[0];
+    assert(sw.props.checked === false, "the switch must be off for a disabled skill");
   });
 }
 
@@ -1442,19 +1443,31 @@ const renderChild = (element) => {
   reset(customSkills, "skills");
   const view = await mount(guardedFace);
   const pluginCard = byClass(view.section, "SKV_card").find((c) => c.props["data-skill-name"] === "agent-experience");
-  check("pluginProvided custom 技能不渲染开关与删除按钮（#90/#97）", () => {
+  check("pluginProvided custom 技能：可用的宿主开关，无删除按钮（#90/#97）", () => {
     assert(pluginCard !== undefined, "agent-experience card missing");
     assert(byClass(pluginCard, "SKV_traffic").length === 0, "pluginProvided skill must not show traffic toggle");
     assert(byClass(pluginCard, "SKV_rowDelete").length === 0, "pluginProvided skill must not show delete button");
-    assert(byClass(pluginCard, "SKV_configTag").length === 1, "pluginProvided skill must show readonly tag");
+    const switches = findAll(pluginCard, (n) => n.type === SwitchStub);
+    assert(switches.length === 1, "pluginProvided skill must show the host switch");
+    assert(switches[0].props.checked === true, "switch must reflect the enabled state");
+    assert(switches[0].props.disabled !== true, "pluginProvided switch must stay usable");
+  });
+  // 随包技能的开关走同一个 setSkillEnabled：宿主在注册表层面隐藏它。
+  {
+    const sw = findAll(pluginCard, (n) => n.type === SwitchStub)[0];
+    sw.props.onChange(false);
+  }
+  await flush();
+  check("pluginProvided 开关下发 setSkillEnabled", () => {
+    assert(toggled.includes("agent-experience"), "expected setSkillEnabled for agent-experience, got " + JSON.stringify(toggled));
   });
   // 点全部开关：只能向可编辑技能发 RPC，绝不能动到 agent-experience。
   const bulkBtn = byClass(view.section, "SKV_groupBulkBtn")[0];
   bulkBtn.props.onClick();
   await flush();
-  check("整组开关跳过 pluginProvided custom 技能（#90/#97）", () => {
-    assert(!toggled.includes("agent-experience"), "bulk toggle must skip pluginProvided skill, got " + JSON.stringify(toggled));
-    assert(toggled.length > 0, "expected editable skills to be toggled");
+  check("整组开关包含 pluginProvided custom 技能（#90/#97）", () => {
+    assert(toggled.includes("agent-experience"), "bulk toggle must include pluginProvided skill, got " + JSON.stringify(toggled));
+    assert(toggled.length > 0, "expected skills to be toggled");
   });
   store.delete("dsh-skill-mcp-panel:last-tab");
 }
