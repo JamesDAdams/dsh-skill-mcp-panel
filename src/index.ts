@@ -625,7 +625,21 @@ export class SkillsViewerGateway extends TypertRemoteService {
         ...(entry.rel ? { rel: entry.rel } : {})
       });
     }
-    return { skills };
+    // 每个技能的真实成本：正文按宿主 token-meter 的同一启发式（4 字符 / Token）计价，
+    // 目录行按「名字 + 描述」计价。列表接口一次算完，客户端直接渲染，不再依赖
+    // 装饰 DOM 的第三方插件。
+    const priced = await Promise.all(skills.map(async (row) => {
+      let chars = 0;
+      try {
+        const definition = await registry.get(row.name, { cwd, scope });
+        if (typeof definition?.content === "string") chars = definition.content.length;
+      } catch {
+        chars = 0;
+      }
+      const catalog = Math.ceil((row.name.length + 1 + String(row.description ?? "").length) / 4);
+      return chars > 0 ? { ...row, tokens: Math.ceil(chars / 4), catalog } : { ...row, catalog };
+    }));
+    return { skills: priced };
   }
 
   /** 分组列表（按名称排序）。 */
