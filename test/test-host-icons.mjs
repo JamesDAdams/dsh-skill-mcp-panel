@@ -31,7 +31,9 @@ const check = (label, cond) => {
 const source = readFileSync(new URL("../lib/client.js", import.meta.url), "utf8");
 
 // ── 1. 直连白名单 ─────────────────────────────────────────────────────────
-const DIRECT_ALLOW = new Set(["Menu"]);
+// Menu 与 Switch 是跨版本稳定的宿主组件（不是图标），允许直接引用；
+// Switch 由 typeof 守卫，宿主缺这个组件时退回插件自绘的开关。
+const DIRECT_ALLOW = new Set(["Menu", "Switch"]);
 const direct = [...new Set([...source.matchAll(/primitives\.([A-Za-z0-9_]+)/g)].map((hit) => hit[1]))];
 check("束里引用了宿主 primitives（不是空跑）", direct.length > 0);
 const directOffenders = direct.filter((name) => !DIRECT_ALLOW.has(name));

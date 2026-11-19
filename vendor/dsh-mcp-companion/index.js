@@ -1205,39 +1205,56 @@ async function skillsPayload(ctx) {
       catalog: 0,
     })
   }
-  // Then the registry: it knows the bundled skills and the exact bodies.
+  // Then the registry, one view per live Agent plus the global one. The panel
+  // reads a skill's scope as the Agent itself (`registry.list({ cwd, scope })`),
+  // and a preset's bundled skills only appear in that Agent's layer: a single
+  // global view listed six file skills out of the thirteen the page shows.
   if (skills !== undefined && typeof skills.list === 'function') {
-    let summaries = []
-    let scope
+    const views = []
     try {
       const agents = serviceOf(ctx, 'agents')
-      const list = typeof agents?.list === 'function' ? agents.list() : []
-      const agent = Array.isArray(list) ? list[0] : undefined
-      scope = agent?.ctx
-    } catch { scope = undefined }
-    try {
-      summaries = await skills.list(scope !== undefined ? { scope } : {})
-    } catch {
-      summaries = []
-    }
-    for (const summary of Array.isArray(summaries) ? summaries : []) {
-      const name = asString(summary?.name)
-      if (name === undefined) continue
-      const description = asString(summary?.description, 200) ?? ''
-      let chars = merged.get(name)?.chars ?? 0
+      const live = typeof agents?.list === 'function' ? agents.list() : []
+      for (const agent of Array.isArray(live) ? live : []) {
+        if (agent === null || typeof agent !== 'object') continue
+        let cwd
+        try {
+          const session = serviceOf(ctx, 'sessions')?.get?.(agent.id)
+          if (typeof session?.header?.cwd === 'string' && session.header.cwd !== '') cwd = session.header.cwd
+        } catch {
+          cwd = undefined
+        }
+        views.push({ scope: agent, cwd })
+      }
+    } catch { /* no live Agent: the global view below still runs */ }
+    views.push({ scope: undefined, cwd: undefined })
+    for (const view of views) {
+      const options = view.cwd === undefined ? { scope: view.scope } : { scope: view.scope, cwd: view.cwd }
+      let summaries = []
       try {
-        const definition = typeof skills.get === 'function' ? await skills.get(name, {}) : undefined
-        if (typeof definition?.content === 'string') chars = definition.content.length
-      } catch { /* keep the file size */ }
-      merged.set(name, {
-        name,
-        description,
-        source: asString(summary?.source) ?? 'runtime',
-        provider: asString(summary?.provider) ?? '',
-        chars,
-        tokens: estimateCharsTokens(chars),
-        catalog: 0,
-      })
+        summaries = await skills.list(options)
+      } catch {
+        continue
+      }
+      for (const summary of Array.isArray(summaries) ? summaries : []) {
+        const name = asString(summary?.name)
+        if (name === undefined) continue
+        const previous = merged.get(name)
+        const description = asString(summary?.description, 200) ?? previous?.description ?? ''
+        let chars = previous?.chars ?? 0
+        try {
+          const definition = typeof skills.get === 'function' ? await skills.get(name, options) : undefined
+          if (typeof definition?.content === 'string') chars = definition.content.length
+        } catch { /* keep the file size when the body cannot be loaded */ }
+        merged.set(name, {
+          name,
+          description,
+          source: asString(summary?.source) ?? previous?.source ?? 'runtime',
+          provider: asString(summary?.provider) ?? previous?.provider ?? '',
+          chars,
+          tokens: estimateCharsTokens(chars),
+          catalog: 0,
+        })
+      }
     }
   }
   const rows = [...merged.values()]
