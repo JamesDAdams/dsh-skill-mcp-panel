@@ -29,7 +29,7 @@ const SEMVER_OR_TAG_RE = /^(?:npm:|[*]|latest$|next$|alpha$|beta$|rc$|[\^~>=<]|v
  * 按原本的安装渠道（或显式指定 channel）构造更新目标 spec。
  *   https://…                         → Release .tgz URL
  *   npm 包名 / npm@ / semver range    → `dsh-skill-mcp-panel@<version>`
- *   github: / git+ / file: / 未声明    → `github:Fishquito7/dsh-skill-mcp-panel#v<version>`
+ *   github: / git+ / file: / 未声明    → `github:JamesDAdams/dsh-skill-mcp-panel#v<version>`
  */
 export function installTargetForDeclaredSpec(
   spec: string | null | undefined,

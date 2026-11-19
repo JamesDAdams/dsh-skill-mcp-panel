@@ -2,6 +2,11 @@
 
 # dsh-skill-mcp-panel
 
+> **Fork `JamesDAdams/dsh-skill-mcp-panel`** — ce fork intègre en un seul paquet le companion MCP
+> (`dsh-mcp-companion` : serveurs montés par d'autres plugins, interrupteurs persistants, chip MCP
+> dans la rangée de la nouvelle conversation, onglets Tools / System prompt) et le token estimator
+> (`dsh-token-estimator`). Détails, construction et installation : [`FORK.md`](FORK.md).
+
 **在 DSH 侧边栏管理「技能」与「MCP」服务器，并附统一终端命令 `dsh-panel`**
 
 [![npm version](https://img.shields.io/npm/v/dsh-skill-mcp-panel?color=cb3837&logo=npm&label=npm)](https://www.npmjs.com/package/dsh-skill-mcp-panel)

@@ -1,37 +1,40 @@
 {
   "name": "dsh-skill-mcp-panel",
-  "version": "2.3.16",
-  "description": "dsh-skill-mcp-panel: manage skills and MCP servers from the DSH web sidebar plus the unified dsh-panel CLI.",
-  "homepage": "https://github.com/Fishquito7/dsh-skill-mcp-panel#readme",
+  "version": "2.4.0",
+  "description": "dsh-skill-mcp-panel fork: manage skills and MCP servers from the DSH web sidebar, with the MCP companion built in (servers mounted by other plugins, persistent switches, per-conversation MCP chip, Tools and System prompt tabs) and the token estimator (composer cost of the next request).",
+  "homepage": "https://github.com/JamesDAdams/dsh-skill-mcp-panel#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Fishquito7/dsh-skill-mcp-panel.git"
+    "url": "git+https://github.com/JamesDAdams/dsh-skill-mcp-panel.git"
   },
   "bugs": {
-    "url": "https://github.com/Fishquito7/dsh-skill-mcp-panel/issues"
+    "url": "https://github.com/JamesDAdams/dsh-skill-mcp-panel/issues"
   },
   "keywords": [
     "dsh",
     "dsh-plugin",
     "deepseek-harness",
     "skills",
-    "mcp"
+    "mcp",
+    "tokens"
   ],
   "type": "module",
-  "main": "lib/index.js",
+  "main": "lib/entry.js",
   "exports": {
-    ".": "./lib/index.js",
-    "./client": "./lib/client.js",
+    ".": "./lib/entry.js",
+    "./client": "./lib/client.merged.js",
     "./package.json": "./package.json"
   },
   "dsh": {
     "client": {
       "platform": "web",
+      "immediately": true,
       "inject": [
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-api-gateway",
         "@deepseek-ai/dsh-client-ui-layout",
-        "@deepseek-ai/dsh-client-ui-sidebar"
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-conversation"
       ]
     },
     "bundle": {
@@ -63,11 +66,12 @@
     "dsh-panel": "lib/cli.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && node scripts/strip-client-export.mjs",
-    "prepack": "tsc -p tsconfig.json && node scripts/strip-client-export.mjs"
+    "build": "tsc -p tsconfig.json && node scripts/strip-client-export.mjs && node scripts/merge-client.mjs",
+    "prepack": "tsc -p tsconfig.json && node scripts/strip-client-export.mjs && node scripts/merge-client.mjs"
   },
   "files": [
     "lib",
+    "vendor",
     "assets",
     "README.md",
     "README.en.md",

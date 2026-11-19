@@ -68,7 +68,7 @@ assert.ok(compareVersions("2.0", "2.0.0") === 0);
 assert.ok(compareVersions("2.0.0-rc.1", "2.0.0") > 0); // known limitation: no prerelease semantics
 pass("compareVersions keeps legacy numeric-segment semantics");
 
-// GitHub API 403 / 网络失败时自动回退 npm registry 最新版。
+// fork：GitHub 限流/不可达时不回退 npm registry——npm 上的同名包是上游构建。
 const origFetch = globalThis.fetch;
 globalThis.fetch = async (url) => {
   if (String(url).includes("api.github.com")) {
@@ -91,11 +91,10 @@ globalThis.fetch = async (url) => {
 };
 try {
   const fallback = await fetchUpdateCheck();
-  assert.equal(fallback.latest, "9.8.7");
-  assert.equal(fallback.updateAvailable, true);
-  assert.equal(fallback.rateLimited, false);
-  assert.equal(fallback.error, undefined);
-  pass("GitHub API 403 falls back to npm registry latest version");
+  assert.equal(fallback.latest, null);
+  assert.equal(fallback.updateAvailable, false);
+  assert.equal(fallback.rateLimited, true);
+  pass("GitHub API 403 does not fall back to the upstream npm package (fork rule)");
 } finally {
   globalThis.fetch = origFetch;
 }
