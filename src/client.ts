@@ -631,6 +631,8 @@ const cssGroups = ".SKV_groupItemWrap{position:relative;display:inline-flex;alig
 			emptyProvider: "该来源下暂无技能。",
 			originUser: "我的技能",
 			originImported: "导入的技能",
+			paneGlobalScope: "全局技能",
+			switchWorkspaceHint: "只在这个工作区里启停 {name}（「全局」里的状态不受影响）",
 			originSystem: "系统自带",
 			originPlugin: "插件：{plugin}",
 			// 布局开关：简洁模式 = 收起左右两栏，把工作区与分组做成列表上方的筛选条（Issue #50）
@@ -778,6 +780,8 @@ const cssGroups = ".SKV_groupItemWrap{position:relative;display:inline-flex;alig
 			emptyProvider: "No skills from this source yet.",
 			originUser: "My skills",
 			originImported: "Imported",
+			paneGlobalScope: "Global skills",
+			switchWorkspaceHint: "Toggle {name} in this workspace only (the Global setting is unchanged)",
 			originSystem: "Built-in",
 			originPlugin: "Plugin: {plugin}",
 			layoutToCompact: "Switch to the compact layout",
@@ -1713,6 +1717,9 @@ function SkillsSection(props) {
 			const sessionId = useHostSessions ? hostSessionId : fallbackSessionId;
 			const [query, setQuery] = react.useState("");
 			const [listState, setListState] = react.useState({ status: "loading" });
+			// 全局停用 + 各工作区覆盖：列表行只带「全局」状态，工作区里的真实开关
+			// 由这两份数据算出来，切换工作区不必重新拉取。
+			const [disabledState, setDisabledState] = react.useState({ global: [], workspaces: {} });
 			const [request, setRequest] = react.useState(0);
 			const [expanded, setExpanded] = react.useState(null);
 			// 树形折叠状态（默认全部展开；路径为 key）。
@@ -1898,6 +1905,11 @@ function SkillsSection(props) {
 				Promise.resolve().then(() => listSkills()).then((snapshot) => {
 					if (!current) return;
 					const skills = snapshot !== null && typeof snapshot === "object" && Array.isArray(snapshot.skills) ? [...snapshot.skills].sort((a, b) => a.name.localeCompare(b.name)) : [];
+					const disabled = snapshot !== null && typeof snapshot === "object" && snapshot.disabled !== null && typeof snapshot.disabled === "object" ? snapshot.disabled : { global: [], workspaces: {} };
+					setDisabledState({
+						global: Array.isArray(disabled.global) ? disabled.global : [],
+						workspaces: disabled.workspaces !== null && typeof disabled.workspaces === "object" ? disabled.workspaces : {}
+					});
 					setListState({ status: "ready", skills });
 				}, () => {
 					if (current) setListState({ status: "error" });
@@ -1939,8 +1951,30 @@ function SkillsSection(props) {
 			// 整组开关复用这一条 RPC 路径，只是不在这里逐次挂热刷新。
 			const runSetEnabled = (skill, target) => {
 				setOps((prev) => ({ ...prev, [opKeyOf(skill)]: { status: "busy" } }));
-				return Promise.resolve().then(() => setSkillEnabled(skill.name, target, scopeOf(skill))).then(() => {
-					setListState((prev) => (prev.status === "ready" ? { status: "ready", skills: prev.skills.map((s) => (s.name === skill.name && scopeOf(s) === scopeOf(skill) ? { ...s, enabled: target } : s)) } : prev));
+				// 在工作区视图里关掉一个全局技能 = 给它在这个工作区里加一条覆盖，
+				// 所以下发的 scope 是这个工作区，而不是 "global"（那会关掉所有人的）。
+				const inWorkspace = skill.globalSkill === true && scopeFilter !== "global";
+				const targetScope = inWorkspace ? scopeFilter : scopeOf(skill);
+				return Promise.resolve().then(() => setSkillEnabled(skill.name, target, targetScope)).then(() => {
+					if (inWorkspace) {
+						setDisabledState((prev) => {
+							const names = new Set(Array.isArray(prev.workspaces[scopeFilter]) ? prev.workspaces[scopeFilter] : []);
+							if (target) names.delete(skill.name);
+							else names.add(skill.name);
+							const workspaces = { ...prev.workspaces };
+							if (names.size === 0) delete workspaces[scopeFilter];
+							else workspaces[scopeFilter] = [...names].sort();
+							return { ...prev, workspaces };
+						});
+					} else {
+						setListState((prev) => (prev.status === "ready" ? { status: "ready", skills: prev.skills.map((s) => (s.name === skill.name && scopeOf(s) === scopeOf(skill) ? { ...s, enabled: target } : s)) } : prev));
+						setDisabledState((prev) => {
+							const names = new Set(Array.isArray(prev.global) ? prev.global : []);
+							if (target) names.delete(skill.name);
+							else names.add(skill.name);
+							return { ...prev, global: [...names].sort() };
+						});
+					}
 					setOps((prev) => ({ ...prev, [opKeyOf(skill)]: { status: "ok" } }));
 					return true;
 				}, () => {
@@ -2380,12 +2414,27 @@ function SkillsSection(props) {
 			if (scopeFilter !== "global" && !scopeKeys.includes(scopeFilter)) scopeKeys.push(scopeFilter);
 			// 插件自带技能由宿主打标（pluginProvided）：它们在技能文件夹之外，面板也改不动，
 			// 默认显示，但可以一键隐藏——只留下自己管理的文件技能。
-			const scopedAll = skills.filter((skill) => scopeOf(skill) === scopeFilter);
+			// 当前视图下每行的真实开关状态：工作区视图里，一个全局技能可能被这个
+			// 工作区单独停用，而它在「全局」里仍然是启用的。
+			const globalOff = new Set(Array.isArray(disabledState.global) ? disabledState.global : []);
+			const offInScope = (name) => scopeFilter === "global" ? false : (Array.isArray(disabledState.workspaces[scopeFilter]) ? disabledState.workspaces[scopeFilter].includes(name) : false);
+			const enabledHere = (skill) => {
+				if (skill.enabled === false) return false;
+				if (scopeOf(skill) !== "global" || scopeFilter === "global") return true;
+				return !globalOff.has(skill.name) && !offInScope(skill.name);
+			};
+			const decorate = (skill) => ({ ...skill, enabled: enabledHere(skill), globalSkill: scopeOf(skill) === "global" });
+			// 工作区视图里同时列出全局技能：它们本来就是这个工作区的 Agent 能看到的
+			// 那一份，正好可以在这一列里单独关掉。
+			const scopedAll = skills
+				.filter((skill) => scopeOf(skill) === scopeFilter || (scopeFilter !== "global" && scopeOf(skill) === "global"))
+				.map(decorate);
 			const hiddenPluginCount = showPluginSkills ? 0 : scopedAll.reduce((sum, skill) => sum + (skill.pluginProvided === true ? 1 : 0), 0);
 			const scoped = showPluginSkills ? scopedAll : scopedAll.filter((skill) => skill.pluginProvided !== true);
 
 			// ── 左轨：工作区（全局恒显示，其余只显示计数 > 0 的）+ 发光竖条 ────
 			// 计数与中栏「全部」一致：按当前作用域统计，插件技能被隐藏时同步扣掉。
+			const GLOBAL_ROW_KEY = "\u0000scope-global";
 			// 分组的中栏数据源：当前作用域里建过组的分组（与 2.0.2 语义一致）；
 			// 另外把「一个成员都还没有的分组」也放进来——中栏底部「＋ 新建分组」建的
 			// 就是这种空组，宿主侧 upsertGroup 在 names 为空时不会写 scope 键，
@@ -2451,13 +2500,21 @@ function SkillsSection(props) {
 			}
 			// 分组筛选（groupFilter）+ 来源筛选（originFilter）叠加。
 			const groupMatched = groupFilter === "all" ? scoped : groupFilter === "" ? scoped.filter((skill) => !groupedNames.has(skill.name)) : scoped.filter((skill) => (Array.isArray(skill.groups) ? skill.groups : []).includes(groupFilter));
-			const activeList = originFilter === "all" ? groupMatched : groupMatched.filter((skill) => originKeyOf(skill) === originFilter);
+			const activeList = originFilter === "all"
+				? groupMatched
+				: originFilter === GLOBAL_ROW_KEY
+					? groupMatched.filter((skill) => skill.globalSkill === true)
+					: groupMatched.filter((skill) => originKeyOf(skill) === originFilter);
 			const filtered = activeList.filter((skill) => skillMatchesQuery(skill, normalizedQuery));
 			// 分组 + 来源共用一个中栏：上面是分组筛选，下面是来源分区。
 			const ungroupedCount = scoped.reduce((sum, skill) => sum + (groupedNames.has(skill.name) ? 0 : 1), 0);
 			const showUngrouped = scopeGroupRows.length > 0 && ungroupedCount > 0;
+			const globalHereCount = scoped.reduce((sum, skill) => sum + (skill.globalSkill === true ? 1 : 0), 0);
 			const paneRows = [
 				{ key: "all", label: t("groupAll"), count: scoped.length, kind: "group" },
+				// 每个工作区都带一行「全局」：全局技能在这一列里出现，就是为了能
+				// 只在这个工作区里把它关掉。
+				...(scopeFilter !== "global" ? [{ key: GLOBAL_ROW_KEY, label: t("paneGlobalScope"), count: globalHereCount, kind: "group" }] : []),
 				...scopeGroupRows.map((group) => ({ key: group.name, label: group.name, count: membersOfGroup(group).length, group, kind: "group" })),
 				...(showUngrouped ? [{ key: "", label: t("paneUngrouped"), count: ungroupedCount, kind: "group" }] : []),
 				...[...originCounts.entries()]
@@ -2683,16 +2740,23 @@ function SkillsSection(props) {
 			const originSections = (() => {
 				const buckets = new Map();
 				for (const skill of filtered) {
+					// 工作区视图里的全局技能单独成块（见下面 unshift），不混进来源分区。
+					if (scopeFilter !== "global" && skill.globalSkill === true) continue;
 					const key = originKeyOf(skill);
 					if (!buckets.has(key)) buckets.set(key, []);
 					buckets.get(key).push(skill);
 				}
-				return [...buckets.entries()].map(([key, list]) => ({
+				const rows = [...buckets.entries()].map(([key, list]) => ({
 					key,
 					label: originLabelOf(key),
 					skills: list,
 					order: key === ORIGIN_USER ? 0 : key === ORIGIN_IMPORTED ? 1 : key === ORIGIN_SYSTEM ? 3 : 2
 				})).sort((left, right) => left.order - right.order || left.label.localeCompare(right.label));
+				if (scopeFilter !== "global") {
+					const globals = filtered.filter((skill) => skill.globalSkill === true);
+					if (globals.length > 0) rows.unshift({ key: GLOBAL_ROW_KEY, label: t("paneGlobalScope"), skills: globals, order: -1 });
+				}
+				return rows;
 			})();
 			const [collapsedOrigins, setCollapsedOrigins] = react.useState(() => new Set());
 			const toggleOrigin = (key) => setCollapsedOrigins((prev) => {
@@ -2811,7 +2875,10 @@ function SkillsSection(props) {
 									if (next !== enabled) applySetEnabled(skill);
 								},
 								label: (enabled ? t("switchDisable") : t("switchEnable")) + " " + skill.name,
-								title: enabled ? t("switchDisable") : t("switchEnable"),
+								// 工作区视图里的全局技能：这里的开关只影响这个工作区。
+								title: skill.globalSkill === true && scopeFilter !== "global"
+									? t("switchWorkspaceHint").replace("{name}", skill.name)
+									: enabled ? t("switchDisable") : t("switchEnable"),
 								disabled: op?.status === "busy"
 							}) : (0, react_jsx_runtime.jsxs)("button", {
 								type: "button",
@@ -2832,7 +2899,9 @@ function SkillsSection(props) {
 									if (next !== enabled) applySetEnabled(skill);
 								},
 								label: (enabled ? t("switchDisable") : t("switchEnable")) + " " + skill.name,
-								title: t("pluginSwitchHint"),
+								title: skill.globalSkill === true && scopeFilter !== "global"
+									? t("switchWorkspaceHint").replace("{name}", skill.name)
+									: t("pluginSwitchHint"),
 								disabled: op?.status === "busy"
 							}) : (0, react_jsx_runtime.jsx)("span", {
 								className: c.configTag,

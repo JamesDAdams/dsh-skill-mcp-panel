@@ -1138,7 +1138,11 @@ const renderChild = (element) => {
     view = paint(rpc);
     assert(byClass(view.section, "SKV_scopeMenu").length === 0, "menu must close after picking a workspace");
     const cards = findAll(view.section, (n) => n.props["data-skill-name"] !== undefined);
-    assert(cards.length === 1 && cards[0].props["data-skill-name"] === "delta", "compact workspace filter did not narrow the list");
+    // 工作区视图现在同时列出全局技能（它们本来就是这个工作区的 Agent 能看到的那份），
+    // 所以这里既有本工作区的 delta，也有 4 个全局技能。
+    const names = cards.map((n) => n.props["data-skill-name"]);
+    assert(names.includes("delta"), "workspace skill missing: " + JSON.stringify(names));
+    assert(names.length === 5, "expected the workspace skill plus the global ones, got " + JSON.stringify(names));
     const label = byClass(view.section, "SKV_scopeSelectLabel")[0];
     assert(label && label.props.children === "one", "dropdown did not follow the selection: " + (label && label.props.children));
     toggleOf(view.section).props.onClick();
@@ -1888,6 +1892,62 @@ const renderChild = (element) => {
   // 合并后分区常驻：即使选中一个分组，分区也还在。
   check("分区常驻，不随分组选择消失", () => {
     assert(byClass(view.section, "SKV_originSection").length > 0, "origin sections must stay rendered");
+  });
+  store.delete("dsh-skill-mcp-panel:last-tab");
+}
+
+// ── 22. 工作区里的「全局」分组：只在这个工作区里关掉一个全局技能 ──────────
+{
+  const rows = [
+    { name: "alpha", description: "A", provider: "filesystem", source: "user", enabled: true, rel: "alpha/SKILL.md", scope: { kind: "global" } },
+    { name: "beta", description: "B", provider: "filesystem", source: "user", enabled: true, rel: "beta/SKILL.md", scope: { kind: "global" } },
+    { name: "delta", description: "D", provider: "filesystem", source: "user", enabled: true, rel: "delta/SKILL.md", scope: { kind: "workspace", path: "C:/proj/one" } }
+  ];
+  // beta 只在这个工作区里被关掉，alpha 没被关。
+  const scopedRpc = {
+    ...rpc,
+    listSkills: async () => ({ skills: rows.map((r) => ({ ...r })), disabled: { global: [], workspaces: { "C:/proj/one": ["beta"] } } }),
+    setSkillEnabled: async (name, enabled, scope) => { toggles.push({ name, enabled, scope }); return { ok: true }; }
+  };
+  const toggles = [];
+  reset(rows, "skills");
+  let view = await mount(rpc);
+  // 切到工作区 C:/proj/one
+  const rail = byClass(view.section, "SKV_railItem");
+  const oneRow = rail.find((n) => n.props.children?.[0]?.props?.children === "one");
+  assert(oneRow, "workspace rail row for one/ is missing");
+  oneRow.props.onClick({ currentTarget: { offsetTop: 0, offsetHeight: 34 } });
+  view = await mount(scopedRpc);
+
+  const paneLabels = byClass(view.section, "SKV_paneItem").map((n) => n.props.children[0].props.children);
+  check("工作区视图的中栏里出现「全局技能」分组", () => {
+    assert(paneLabels.includes("全局技能"), "global group row missing: " + JSON.stringify(paneLabels));
+    assert(paneLabels[1] === "全局技能", "global row must sit right under 全部, got " + JSON.stringify(paneLabels));
+  });
+  const sections = byClass(view.section, "SKV_originSection");
+  const headLabels = sections.map((sec) => byClass(sec, "SKV_originLabel")[0].props.children);
+  check("全局技能在列表顶部单独成块", () => {
+    assert(headLabels[0] === "全局技能", "global section must come first, got " + JSON.stringify(headLabels));
+    const names = byClass(sections[0], "SKV_card").map((c) => c.props["data-skill-name"]);
+    assert(names.includes("alpha") && names.includes("beta"), "global skills missing from the section: " + JSON.stringify(names));
+    assert(!names.includes("delta"), "workspace skill must not leak into the global section");
+  });
+  check("工作区里被覆盖停用的全局技能显示为关闭", () => {
+    const cards = byClass(sections[0], "SKV_card");
+    const beta = cards.find((c) => c.props["data-skill-name"] === "beta");
+    const alpha = cards.find((c) => c.props["data-skill-name"] === "alpha");
+    const switchOf = (card) => findAll(card, (n) => n.type === SwitchStub)[0];
+    assert(switchOf(beta).props.checked === false, "beta must read as off in this workspace, got " + switchOf(beta).props.checked);
+    assert(switchOf(alpha).props.checked === true, "alpha must stay on");
+  });
+  // alpha 在这个工作区里是开着的：关掉它必须下发工作区作用域，而不是全局。
+  const alphaCard = byClass(sections[0], "SKV_card").find((c) => c.props["data-skill-name"] === "alpha");
+  findAll(alphaCard, (n) => n.type === SwitchStub)[0].props.onChange(false);
+  await flush();
+  check("在工作区里切换全局技能下发的是工作区作用域", () => {
+    assert(toggles.length === 1, "expected one setSkillEnabled call, got " + toggles.length);
+    assert(toggles[0].name === "alpha" && toggles[0].enabled === false && toggles[0].scope === "C:/proj/one",
+      "toggle must target the workspace, got " + JSON.stringify(toggles[0]));
   });
   store.delete("dsh-skill-mcp-panel:last-tab");
 }
