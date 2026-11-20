@@ -397,6 +397,9 @@ window.__ModuleLoader__.load({
 
     const CHIP_CSS = [
       '.dsh-mcp-chip-host{display:inline-flex;align-items:center;min-width:0}',
+      '.dsh-mcp-chip-count{display:none;align-items:center;justify-content:center;min-width:16px;height:16px;',
+      'padding:0 4px;border-radius:999px;background:rgba(255,255,255,.14);color:var(--dsw-alias-label-primary);',
+      'font-size:10.5px;font-weight:600;line-height:1;box-sizing:border-box}',
       '.dsh-mcp-chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;',
       'border-radius:9px;border:1px solid transparent;background:transparent;',
       'color:var(--dsw-alias-label-primary);',
@@ -561,6 +564,12 @@ window.__ModuleLoader__.load({
       button.setAttribute('aria-haspopup', 'dialog')
       button.setAttribute('aria-expanded', 'false')
       button.innerHTML = PLUG_ICON + '<span>MCP</span>' + CHEVRON
+      // How many MCP servers are usable right now, right on the chip so the
+      // reader does not have to open the menu to know. Hidden at zero.
+      const countBadge = document.createElement('span')
+      countBadge.className = 'dsh-mcp-chip-count'
+      countBadge.style.display = 'none'
+      button.insertBefore(countBadge, button.lastChild)
       node.appendChild(button)
 
       // The row's option group is right-aligned, so a chip registered there
@@ -721,6 +730,30 @@ window.__ModuleLoader__.load({
        * pre-existing one looks like: `Gitlab` and `gitlab`. They are the same
        * server to the reader, so they get one row and one switch.
        */
+      /** Whether this server contributes anything to the conversation right now. */
+      function toolsLive(member) {
+        const active = member?.activeToolCount
+        const total = member?.toolCount
+        if (typeof active === 'number' && typeof total === 'number' && total > 0) return active > 0
+        return member?.enabled !== false
+      }
+
+      /** Refresh the number printed on the chip (nothing at zero). */
+      function paintChipCount() {
+        const servers = Array.isArray(payload?.servers) ? payload.servers : []
+        // "Active" means the server is loaded and running in this profile — the
+        // number that answers "how many MCP servers do I have on?".
+        const active = servers.filter((server) => server !== null && typeof server === 'object'
+          && server.name !== RESOURCE_BRIDGE_NAME
+          && server.enabled !== false
+          && server.active === true).length
+        countBadge.textContent = active > 0 ? String(active) : ''
+        countBadge.style.display = active > 0 ? 'inline-flex' : 'none'
+        button.title = active > 0
+          ? 'MCP for this conversation (' + active + ' active)'
+          : 'MCP for this conversation'
+      }
+
       function groupServers(list) {
         const byKey = new Map()
         for (const server of list) {
@@ -867,13 +900,7 @@ window.__ModuleLoader__.load({
         // A server that reports no tool at all has simply not connected yet, so
         // its profile state speaks; only a loaded server with everything denied
         // here counts as off.
-        const liveTools = (member) => {
-          const active = member?.activeToolCount
-          const total = member?.toolCount
-          if (typeof active === 'number' && typeof total === 'number' && total > 0) return active
-          return member?.enabled === false ? 0 : 1
-        }
-        const on = group.members.some((member) => liveTools(member) > 0)
+        const on = group.members.some((member) => toolsLive(member))
         // Declared before its first use: reading it earlier in this function
         // threw a temporal-dead-zone error and emptied the whole list.
         const profileOff = group.members.some((member) => member?.disabled === true)
@@ -1101,6 +1128,7 @@ window.__ModuleLoader__.load({
         return fetchJson(urlFor())
           .then((next) => {
             if (next !== null && typeof next === 'object' && next.ok === true) payload = next
+            paintChipCount()
             render()
           })
           .catch((error) => {
@@ -1170,8 +1198,14 @@ window.__ModuleLoader__.load({
 
       button.addEventListener('click', () => { if (menu === null) open(); else close() })
 
+      // The badge has to be right before the menu is ever opened, and stay right
+      // when a server starts or stops on its own.
+      void load()
+      const idleTimer = setInterval(() => { if (menu === null) void load() }, 15000)
+
       return function disposeChip() {
         close()
+        clearInterval(idleTimer)
         stopped = true
         try { if (frame !== 0) cancelAnimationFrame(frame) } catch { /* already gone */ }
         window.removeEventListener('resize', align)
