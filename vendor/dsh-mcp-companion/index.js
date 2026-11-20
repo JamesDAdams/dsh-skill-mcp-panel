@@ -733,8 +733,19 @@ function inventory(ctx, disabled, sessionId, state) {
   for (const row of rows) {
     if (row.toolCount > 0) {
       const known = cache[row.name]
-      if (known === undefined || known.toolCount !== row.toolCount || known.tokens !== row.tokens) {
-        cache[row.name] = { toolCount: row.toolCount, tokens: row.tokens, at: Date.now() }
+      // Keep the tool names too, not just their weight: a server the profile
+      // switches off registers no schema, and the preset form still has to be
+      // able to offer its individual tools.
+      const tools = (Array.isArray(row.tools) ? row.tools : []).map((tool) => ({
+        name: tool.name,
+        description: typeof tool.description === 'string' ? tool.description : '',
+        tokens: typeof tool.tokens === 'number' ? tool.tokens : 0,
+      }))
+      const stale = known === undefined || known.toolCount !== row.toolCount
+        || known.tokens !== row.tokens || !Array.isArray(known.tools)
+        || known.tools.length !== tools.length
+      if (stale) {
+        cache[row.name] = { toolCount: row.toolCount, tokens: row.tokens, at: Date.now(), tools }
         cacheDirty = true
       }
     } else {
@@ -954,16 +965,116 @@ function writeMcpPins(state, presetId, pins) {
   state.mcpPins = all
 }
 
-/** The tools one live MCP server publishes, as the registry sees them. */
-function serverToolsOf(ctx, server) {
+/** The last tool list remembered for a server the registry no longer shows. */
+function cachedToolsOf(state, server) {
+  const cache = state !== null && typeof state === 'object'
+    && state.mcpToolCache !== null && typeof state.mcpToolCache === 'object'
+    && !Array.isArray(state.mcpToolCache)
+    ? state.mcpToolCache
+    : {}
+  const known = cache[server]
+  return known !== undefined && Array.isArray(known.tools) ? known.tools : []
+}
+
+/**
+ * The probe reports in the panel's own language; the preset form is French, so
+ * map the cases a user actually hits instead of showing raw Chinese.
+ */
+function probeErrorText(raw) {
+  const text = typeof raw === 'string' ? raw.trim() : ''
+  if (text === '') return 'aucune réponse du serveur'
+  if (/超时/.test(text)) return 'délai dépassé : le serveur n’a pas répondu à temps'
+  if (/配置无效/.test(text)) return 'configuration du serveur invalide'
+  if (/ENOTFOUND|EAI_AGAIN|getaddrinfo/i.test(text)) return 'serveur introuvable (réseau ou DNS)'
+  if (/ECONNREFUSED/i.test(text)) return 'connexion refusée'
+  if (/401|403|unauthorized|forbidden/i.test(text)) return 'accès refusé par le serveur (jeton ou droits)'
+  return text
+}
+
+/** Remember a freshly discovered tool list so it survives the next reload. */
+function rememberServerTools(state, server, tools) {
+  if (state === null || typeof state !== 'object') return
+  if (state.mcpToolCache === null || typeof state.mcpToolCache !== 'object' || Array.isArray(state.mcpToolCache)) state.mcpToolCache = {}
+  const rows = tools.map((tool) => ({
+    name: tool.name,
+    description: typeof tool.description === 'string' ? tool.description : '',
+    tokens: typeof tool.tokens === 'number' ? tool.tokens : 0,
+  }))
+  state.mcpToolCache[server] = {
+    toolCount: rows.length,
+    tokens: rows.reduce((total, tool) => total + tool.tokens, 0),
+    at: Date.now(),
+    tools: rows,
+  }
+  try { void saveState(state) } catch { /* the exit flush retries */ }
+}
+
+/**
+ * Ask the server itself what it publishes.
+ *
+ * A server the profile switches off never registers a schema, so the registry
+ * and the cache can both be empty on a fresh profile. Probing it out of band
+ * costs one short-lived connection and changes no configuration, which is why
+ * this only runs when the user asks for it.
+ */
+async function discoverServerTools(ctx, server) {
+  let config = null
+  try {
+    const entry = readEntries(ctx).rows.find((row) => row.name === MCP_CLIENT_PACKAGE
+      && row.config !== null && typeof row.config === 'object' && row.config.serverName === server)
+    config = entry !== undefined && entry.config !== null && typeof entry.config === 'object' ? entry.config : null
+  } catch { config = null }
+  if (config === null) return { tools: [], error: 'serveur inconnu dans ce profil' }
+  let probe
+  try {
+    probe = await import('../../lib/mcp/probe.js')
+  } catch (error) {
+    return { tools: [], error: 'sonde MCP indisponible' }
+  }
+  let result
+  try {
+    // A stdio server started with npx pays a package download on first use, so
+    // the probe gets a longer budget than the panel's own Test button.
+    result = await probe.probeMcpServer(config, 25000)
+  } catch (error) {
+    return { tools: [], error: String(error?.message ?? error) }
+  }
+  if (result?.ok !== true) return { tools: [], error: probeErrorText(result?.error) }
+  const rows = (Array.isArray(result.tools) ? result.tools : []).map((tool) => ({
+    name: 'mcp__' + server + '__' + String(tool.name),
+    label: String(tool.name),
+    description: typeof tool.description === 'string' ? tool.description : '',
+    tokens: estimateSchemaTokens({ name: tool.name, description: tool.description }),
+  }))
+  return { tools: rows, error: null }
+}
+
+/**
+ * The tools one MCP server publishes.
+ *
+ * A server the profile switches off registers no schema, so the registry alone
+ * reports nothing and the preset form could never offer its individual tools,
+ * even though a pin is exactly what starts that server for one agent. Fall back
+ * to the last list seen while the server was live.
+ */
+function serverToolsOf(ctx, server, state) {
   const prefix = 'mcp__' + server + '__'
-  return readSchemas(ctx).rows
+  const live = readSchemas(ctx).rows
     .filter((schema) => typeof schema?.name === 'string' && schema.name.startsWith(prefix))
     .map((schema) => ({
       name: schema.name,
       label: schema.name.slice(prefix.length),
       description: typeof schema.description === 'string' ? schema.description.trim().slice(0, 400) : '',
       tokens: estimateSchemaTokens(schema),
+    }))
+  if (live.length > 0) return live
+  return cachedToolsOf(state, server)
+    .filter((tool) => typeof tool?.name === 'string' && tool.name.startsWith(prefix))
+    .map((tool) => ({
+      name: tool.name,
+      label: tool.name.slice(prefix.length),
+      description: typeof tool.description === 'string' ? tool.description.trim().slice(0, 400) : '',
+      tokens: typeof tool.tokens === 'number' ? tool.tokens : 0,
     }))
 }
 
@@ -3681,8 +3792,27 @@ export function apply(ctx) {
               sendJson(res, 400, { ok: false, error: 'missing server' })
               return
             }
-            const tools = serverToolsOf(ctx, server)
-            sendJson(res, 200, { ok: true, server, tools, loaded: tools.length > 0 })
+            let tools = serverToolsOf(ctx, server, state)
+            let error = null
+            // `discover=1` is the explicit "ask the server" click: only then does
+            // the host open a short-lived connection, because probing every
+            // disabled server on panel open would start servers nobody asked for.
+            if (tools.length === 0 && paramOf('discover', 4) === '1') {
+              const found = await discoverServerTools(ctx, server)
+              tools = found.tools
+              error = found.error
+              if (tools.length > 0) rememberServerTools(state, server, tools)
+            }
+            const live = readSchemas(ctx).rows.some((schema) => typeof schema?.name === 'string'
+              && schema.name.startsWith('mcp__' + server + '__'))
+            sendJson(res, 200, {
+              ok: true,
+              server,
+              tools,
+              loaded: tools.length > 0,
+              cached: tools.length > 0 && !live,
+              ...(error === null ? {} : { error }),
+            })
             return
           }
 

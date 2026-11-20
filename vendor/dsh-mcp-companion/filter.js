@@ -60,6 +60,9 @@ const MAX_MCP_PINS = 8
 const MAX_PIN_TOOLS = 240
 /** MCP servers whose weight is remembered while they are off. */
 export const MAX_TOOL_CACHE = 64
+
+/** Tool names remembered per server (the form only ever lists them). */
+export const MAX_TOOLS_PER_SERVER = 200
 /** Presets whose colour the user picked. */
 export const MAX_COLORS = 96
 /** Presets kept out of the New-Session agent menu. */
@@ -112,6 +115,19 @@ function readToolCache(raw) {
     const toolCount = typeof value.toolCount === 'number' && Number.isFinite(value.toolCount) ? value.toolCount : 0
     if (tokens <= 0 && toolCount <= 0) continue
     out[name] = { tokens, toolCount, at: typeof value.at === 'number' ? value.at : 0 }
+    // Keep the tool names as well: once the profile switches a server off, the
+    // registry publishes no schema and this list is the only way the preset form
+    // can still offer that server's individual tools.
+    if (Array.isArray(value.tools)) {
+      out[name].tools = value.tools
+        .filter((tool) => tool !== null && typeof tool === 'object' && typeof tool.name === 'string' && tool.name.length > 0)
+        .slice(0, MAX_TOOLS_PER_SERVER)
+        .map((tool) => ({
+          name: tool.name,
+          description: typeof tool.description === 'string' ? tool.description : '',
+          tokens: typeof tool.tokens === 'number' && Number.isFinite(tool.tokens) ? tool.tokens : 0,
+        }))
+    }
     if (Object.keys(out).length >= MAX_TOOL_CACHE) break
   }
   return out

@@ -3111,16 +3111,27 @@ window.__ModuleLoader__.load({
         : 'L’agent garde ces serveurs même si le profil les coupe. Un serveur désactivé est démarré et réservé à cet agent.'))
       body.appendChild(mcpField)
 
-      const toolsOfServer = (server) => new Promise((resolve) => {
-        if (cache.has(server)) { resolve(cache.get(server)); return }
-        fetchJson(ENDPOINT + '?view=serverTools&server=' + encodeURIComponent(server) + '&client=' + CLIENT_VERSION)
+      const toolsOfServer = (server, options) => new Promise((resolve) => {
+        const discover = options !== undefined && options.discover === true
+        if (!discover && cache.has(server)) { resolve(cache.get(server)); return }
+        const suffix = discover ? '&discover=1' : ''
+        fetchJson(ENDPOINT + '?view=serverTools&server=' + encodeURIComponent(server) + '&client=' + CLIENT_VERSION + suffix)
           .then((payload) => {
             const rows = Array.isArray(payload?.tools) ? payload.tools : []
-            cache.set(server, rows)
+            if (rows.length > 0) cache.set(server, rows)
             resolve(rows)
           })
           .catch(() => resolve([]))
       })
+
+      // Explicit probe: keeps the reason so the form can say why it failed.
+      const discoverServerTools = (server) => fetchJson(
+        ENDPOINT + '?view=serverTools&server=' + encodeURIComponent(server) + '&client=' + CLIENT_VERSION + '&discover=1'
+      ).then((payload) => {
+        const rows = Array.isArray(payload?.tools) ? payload.tools : []
+        if (rows.length > 0) cache.set(server, rows)
+        return { rows, error: typeof payload?.error === 'string' ? payload.error : null }
+      }).catch((error) => ({ rows: [], error: String(error?.message ?? error) }))
 
       const paintServerTools = async (state) => {
         const before = state.holder
@@ -3139,7 +3150,35 @@ window.__ModuleLoader__.load({
           state.tools = new Set(rows.map((row) => row.name))
         }
         if (rows.length === 0) {
-          holder.appendChild(note('Aucun outil publié pour l’instant : le serveur n’a pas encore répondu.'))
+          // The server is off in the profile (or has not answered yet), so the
+          // registry knows none of its tools. Offer an explicit probe instead of
+          // a dead end: it opens one short-lived connection and caches the list.
+          const off = state.enabled !== true
+          const failed = typeof state.probeError === 'string' && state.probeError.length > 0
+          holder.appendChild(note(failed
+            ? 'Impossible de lister les outils : ' + state.probeError
+            : off
+              ? 'Serveur désactivé dans le profil : ses outils ne sont pas encore connus.'
+              : 'Aucun outil publié pour l’instant : le serveur n’a pas encore répondu.'))
+          if (readOnly !== true) {
+            const probeButton = document.createElement('button')
+            probeButton.type = 'button'
+            probeButton.textContent = 'Découvrir les outils'
+            probeButton.style.cssText = 'font:inherit;font-size:10.5px;padding:2px 9px;border-radius:5px;align-self:flex-start;'
+              + 'border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:#c9c9d1;cursor:pointer'
+            probeButton.addEventListener('click', (event) => {
+              event.preventDefault()
+              event.stopPropagation()
+              probeButton.disabled = true
+              probeButton.textContent = 'connexion…'
+              state.probeError = null
+              void discoverServerTools(state.name).then((result) => {
+                if (result.rows.length === 0) state.probeError = result.error ?? 'aucun outil renvoyé'
+                void paintServerTools(state)
+              })
+            })
+            holder.appendChild(probeButton)
+          }
           return
         }
         const head = document.createElement('div')
