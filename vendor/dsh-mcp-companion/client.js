@@ -5220,38 +5220,10 @@ window.__ModuleLoader__.load({
           // a server that only connected afterwards still reads "0 tools" while
           // the inventory knows better. Only a positive, known count overwrites
           // it: this must never replace a real number with a stale zero.
-          // A server DSH loads only so one conversation can use it is denied
-          // everywhere else and must not read as enabled in this list. Its
-          // switch is forced off on every pass, because React restores it.
-          // In a workspace view the panel drives the switches itself (a server can be
-          // off in one workspace and on elsewhere), so leave its state alone.
-          const inWorkspaceScope = card.closest?.('[data-mcp-scope="workspace"]') !== null
-            && card.closest?.('[data-mcp-scope="workspace"]') !== undefined
-          if (!inWorkspaceScope
-            && typeof server.activeToolCount === 'number' && server.activeToolCount === 0
-            && typeof server.toolCount === 'number' && server.toolCount > 0) {
-            for (const control of Array.from(card.querySelectorAll?.('button[role="switch"]') ?? [])) {
-              if (control.getAttribute('data-on') !== 'true') continue
-              control.setAttribute('data-on', 'false')
-              control.setAttribute('aria-checked', 'false')
-              control.title = 'Off in the profile: this server is denied everywhere and '
-                + 'allowed only in the conversation where you switched it on.'
-              // The panel renders the state word as its own button now, so the
-              // text node this used to rewrite is gone: update that button too,
-              // or the row reads "Enabled" with the switch visibly off.
-              const labelButton = card.querySelector?.('.SKV_switchText')
-              if (labelButton !== null && labelButton !== undefined) {
-                labelButton.textContent = labelButton.textContent
-                  .replace('Enabled', 'Disabled')
-                  .replace('\u5df2\u542f\u7528', '\u5df2\u505c\u7528')
-              } else {
-                const label = Array.from(control.childNodes)
-                  .find((node) => node.nodeType === 3 && node.nodeValue.trim().length > 0)
-                if (label !== undefined && label.nodeValue.trim() === 'Enabled') label.nodeValue = 'Disabled'
-              }
-            }
-          }
-
+          // The card's switch belongs to the panel: it mirrors the profile (or the
+          // workspace override) and a click writes exactly that. Forcing it off
+          // here desynchronised it from React, so the next click sent the
+          // opposite of what the reader asked for.
           // A result box from "Test connection" stays until dismissed: one
           // click on the card closes it, and it stays closed even when the
           // panel re-renders it.
