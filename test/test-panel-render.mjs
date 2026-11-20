@@ -362,7 +362,9 @@ const assert = (cond, message) => { if (!cond) throw new Error(message); };
     assert(labels[0] === "全部", "first pane row must be 全部: " + JSON.stringify(labels));
     assert(labels.includes("办公"), "group row missing: " + JSON.stringify(labels));
     assert(labels.includes("未分组"), "ungrouped row missing: " + JSON.stringify(labels));
-    assert(byClass(view.section, "SKV_paneMode").length === 2, "group/source switch missing");
+    // 分组与来源已合并成一列：不再有 Groups/Sources 切换，来源行直接接在分组行后面。
+    assert(byClass(view.section, "SKV_paneMode").length === 0, "the group/source switch must be gone");
+    assert(labels.includes("我的技能") || labels.includes("系统自带"), "origin rows must follow the group rows: " + JSON.stringify(labels));
     assert(byClass(view.section, "SKV_paneNew").length === 1, "inline new-group button missing");
   });
   check("toolbar exposes the square buttons with aria-label tooltips", () => {
@@ -402,29 +404,32 @@ const assert = (cond, message) => { if (!cond) throw new Error(message); };
   });
 }
 
-// ── 2. 来源模式（#42）──────────────────────────────────────────────────────
+// ── 2. 分组 + 来源合并成一列（#42 融合）────────────────────────────────────
 {
   reset();
   const base = await mount();
-  byClass(base.section, "SKV_paneMode")[1].props.onClick();
-  const source = await mount();
-  const rows = byClass(source.section, "SKV_paneItem");
+  const rows = byClass(base.section, "SKV_paneItem");
   const labels = rows.map((n) => n.props.children[0].props.children);
-  check("source mode lists 插件自带 + provider names with counts", () => {
-    assert(labels.includes("插件自带"), "plugin-provided source row missing: " + JSON.stringify(labels));
-    assert(labels.includes("filesystem") && labels.includes("nested"), "provider rows missing: " + JSON.stringify(labels));
+  check("pane lists groups followed by origin rows", () => {
+    assert(labels.includes("办公"), "group row missing: " + JSON.stringify(labels));
+    assert(labels.includes("我的技能"), "user origin row missing: " + JSON.stringify(labels));
+    assert(labels.indexOf("办公") < labels.indexOf("我的技能"), "group rows must come before origin rows");
   });
-  const fsRow = rows.find((n) => n.props.children[0].props.children === "filesystem");
-  fsRow.props.onClick();
+  // 点来源行：按该来源过滤右侧列表。
+  const userRow = rows.find((n) => n.props.children[0].props.children === "我的技能");
+  userRow.props.onClick();
   const filtered = await mount();
   const names = byClass(filtered.section, "SKV_card").map((c) => c.props["data-skill-name"]);
-  check("selecting a source filters the list", () => {
-    assert(names.length === 2 && names.includes("alpha") && names.includes("omega"), "expected the two filesystem skills, got " + JSON.stringify(names));
+  check("selecting an origin filters the list", () => {
+    assert(!names.includes("gamma"), "the bundled skill must be filtered out, got " + JSON.stringify(names));
+    assert(names.length === 3, "expected the global user skills, got " + JSON.stringify(names));
   });
-  byClass(filtered.section, "SKV_paneMode")[0].props.onClick();
+  // 回到「全部」恢复整份列表。
+  const allRow = byClass(filtered.section, "SKV_paneItem").find((n) => n.props.children[0].props.children === "全部");
+  allRow.props.onClick();
   const back = await mount();
-  check("switching back to groups restores the group filter", () => {
-    assert(byClass(back.section, "SKV_card").length === 4, "expected the full list again");
+  check("back to 全部 restores every skill", () => {
+    assert(byClass(back.section, "SKV_card").length === 4, "expected the scoped list again, got " + byClass(back.section, "SKV_card").length);
   });
 }
 
@@ -1829,9 +1834,7 @@ const renderChild = (element) => {
   ];
   reset(mixed, "skills");
   let view = await mount(rpc);
-  // 切到「来源」模式：中栏第二个 mode 按钮（与 2. 来源模式 同款）。
-  byClass(view.section, "SKV_paneMode")[1].props.onClick();
-  view = await mount(rpc);
+  // 分区是常驻的，不再需要切换到「来源」模式。
 
   const sections = byClass(view.section, "SKV_originSection");
   check("来源模式渲染按 provenance 分区的折叠区块", () => {
@@ -1866,13 +1869,9 @@ const renderChild = (element) => {
     assert(byClass(after[0], "SKV_cards").length === 0, "collapsed section must hide its card list");
     assert(byClass(after[1], "SKV_cards").length === 1, "sibling sections must stay open");
   });
-  // 分组模式（默认）不应出现分区。
-  byClass(view.section, "SKV_paneMode")[0].props.onClick();
-  view = await mount(rpc);
-  check("分组模式不渲染来源分区（保持原列表）", () => {
-    assert(byClass(view.section, "SKV_originSection").length === 0, "group mode must not render origin sections");
-    // 分组模式下 rel 为空的技能会落进文件树文件夹里，卡片挂在文件夹下：只要没有分区即可。
-    assert(byClass(view.section, "SKV_originHead").length === 0, "group mode must not render origin headers");
+  // 合并后分区常驻：即使选中一个分组，分区也还在。
+  check("分区常驻，不随分组选择消失", () => {
+    assert(byClass(view.section, "SKV_originSection").length > 0, "origin sections must stay rendered");
   });
   store.delete("dsh-skill-mcp-panel:last-tab");
 }

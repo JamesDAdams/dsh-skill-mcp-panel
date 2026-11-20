@@ -1780,9 +1780,8 @@ function SkillsSection(props) {
 				}
 			};
 			// ── v2.1.6 三栏外壳相关状态 ───────────────────────────────────────
-			// 中栏两种维度（分组 / 来源）；两者各自记筛选值，切换回来不丢。
-			const [paneMode, setPaneMode] = react.useState("groups");
-			const [providerFilter, setProviderFilter] = react.useState("all");
+			// 中栏一列同时承载分组筛选与来源筛选，两者可叠加。
+			const [originFilter, setOriginFilter] = react.useState("all");
 			// 批量模式：勾选框 + 底部操作栏（迁移到… / 取消）。
 			const [batchMode, setBatchMode] = react.useState(false);
 			const [selected, setSelected] = react.useState(() => new Set());
@@ -1874,20 +1873,12 @@ function SkillsSection(props) {
 			}, []);
 			const narrowLayout = narrowViewport || narrowPanel;
 			const layoutCompact = layoutPreferredCompact || narrowLayout;
-			// 窄屏被自动切过去时同样没有「来源」入口，筛选口径也要统一到分组，
-			// 否则会出现「筛选条显示的是分组、列表却按来源过滤」的错位。
-			react.useEffect(() => {
-				if (layoutCompact && paneMode !== "groups") setPaneMode("groups");
-			}, [layoutCompact, paneMode]);
 			// 简洁模式里工作区下拉的展开状态（宿主 Menu 以 portal 渲染）。
 			const [scopeMenuOpen, setScopeMenuOpen] = react.useState(false);
 			const toggleLayout = () => {
 				// 窄屏下这枚开关根本不渲染；这里再兜一道，别让三栏被别处塞回来。
 				if (narrowLayout) return;
 				const next = !layoutCompact;
-				// 简洁模式下没有「分组 / 来源」切换入口，口径统一到分组维度，
-				// 否则会出现「筛选条显示的是分组、列表却按来源过滤」的错位。
-				if (next && paneMode !== "groups") setPaneMode("groups");
 				setScopeMenuOpen(false);
 				setLayoutPreferredCompact(next);
 				try {
@@ -2215,9 +2206,9 @@ function SkillsSection(props) {
 				Promise.resolve().then(() => saveGroupSkill(payload)).then((snapshot) => {
 					const rows = snapshot !== null && typeof snapshot === "object" && Array.isArray(snapshot.groups) ? snapshot.groups : [];
 					setGroupsList(rows);
-					setPaneMode("groups");
+					// 新建分组后直接选中它；来源筛选回到「全部」，免得列表被两层筛选夹空。
 					if (editor.scope === scopeFilter) setGroupFilter(trimmed);
-					setProviderFilter("all");
+					setOriginFilter("all");
 					setGroupEditor(null);
 					reloadAfterHot();
 				}, (error) => {
@@ -2417,55 +2408,65 @@ function SkillsSection(props) {
 			if (!railEntries.some((entry) => entry.key === scopeFilter)) railEntries.push({ key: scopeFilter, label: labelOf(scopeFilter), count: countInScope(scopeFilter) });
 			const countOfScope = (scopeKey) => (scopeKey === "global" ? t("scopeGlobal") : labelOf(scopeKey));
 
-			// ── 中栏：分组（默认）或来源（#42）────────────────────────────────
-			// 来源 = 技能的 provider；pluginProvided 的技能归到「插件自带」一组。
-			const PROVIDER_PLUGIN = "\u0000plugin";
-			const PROVIDER_PREFIX = "\u0000provider:";
-			const providerKeyOf = (skill) => (skill.pluginProvided === true ? PROVIDER_PLUGIN : PROVIDER_PREFIX + (typeof skill.provider === "string" && skill.provider !== "" ? skill.provider : t("paneProviderUnknown")));
-			const providerLabelOf = (key) => (key === PROVIDER_PLUGIN ? t("panePluginProvided") : key.slice(PROVIDER_PREFIX.length));
-			const sourceCounts = new Map();
+			// ── 中栏：分组 + 来源（合并）─────────────────────────────────────
+			// 分组是筛选器（可新建），来源决定右侧列表怎么分区；两者同时生效。
+			const ORIGIN_USER = "\u0000user";
+			const ORIGIN_SYSTEM = "\u0000system";
+			const ORIGIN_PLUGIN_PREFIX = "\u0000plugin:";
+			const originKeyOf = (skill) => {
+				if (skill.source === "bundled" || skill.source === "runtime") return ORIGIN_SYSTEM;
+				// provider=filesystem / nested 是文件技能（用户根或工作区扫描所得）；
+				// 即使宿主因路径不在受管根目录里标了 pluginProvided，也算「我的技能」。
+				const provider = typeof skill.provider === "string" ? skill.provider : "";
+				if (provider === "filesystem" || provider === "nested") return ORIGIN_USER;
+				if (skill.pluginProvided === true) return ORIGIN_PLUGIN_PREFIX + (provider !== "" ? provider : t("paneProviderUnknown"));
+				return ORIGIN_USER;
+			};
+			const originLabelOf = (key) => key === ORIGIN_USER ? t("originUser") : key === ORIGIN_SYSTEM ? t("originSystem") : t("originPlugin").replace("{plugin}", key.slice(ORIGIN_PLUGIN_PREFIX.length));
+			// 来源筛选：originFilter 存来源键。
+			const originCounts = new Map();
 			for (const skill of scoped) {
-				const key = providerKeyOf(skill);
-				sourceCounts.set(key, (sourceCounts.get(key) ?? 0) + 1);
+				const key = originKeyOf(skill);
+				originCounts.set(key, (originCounts.get(key) ?? 0) + 1);
 			}
-			const grouped = paneMode === "provider"
-				? (providerFilter === "all" ? scoped : scoped.filter((skill) => providerKeyOf(skill) === providerFilter))
-				: (groupFilter === "all" ? scoped : scoped.filter((skill) => (Array.isArray(skill.groups) ? skill.groups : []).includes(groupFilter)));
 			// 「未分组」：不属于当前作用域里任何一个分组的技能。
 			const groupedNames = new Set();
 			for (const group of scopeGroupRows) {
 				const names = group.scopes !== undefined && group.scopes !== null && Array.isArray(group.scopes[scopeFilter]) ? group.scopes[scopeFilter] : [];
 				for (const name of names) groupedNames.add(name);
 			}
-			const groupFiltered = paneMode !== "groups" || groupFilter === "all" ? scoped : groupFilter === "" ? scoped.filter((skill) => !groupedNames.has(skill.name)) : grouped;
-			const activeList = paneMode === "provider" ? grouped : groupFiltered;
+			// 分组筛选（groupFilter）+ 来源筛选（originFilter）叠加。
+			const groupMatched = groupFilter === "all" ? scoped : groupFilter === "" ? scoped.filter((skill) => !groupedNames.has(skill.name)) : scoped.filter((skill) => (Array.isArray(skill.groups) ? skill.groups : []).includes(groupFilter));
+			const activeList = originFilter === "all" ? groupMatched : groupMatched.filter((skill) => originKeyOf(skill) === originFilter);
 			const filtered = activeList.filter((skill) => skillMatchesQuery(skill, normalizedQuery));
-			// 中栏行：全部 / 各分组（或各来源）/ 未分组，行尾都带计数。
-			// 「未分组」只在**有意义**时出现：这个作用域确实建过分组，且真的还有没进分组的技能。
-			// 没建分组时它等于「全部」，全部分组后它点进去是空列表——两种都是纯噪音。
+			// 分组 + 来源共用一个中栏：上面是分组筛选，下面是来源分区。
 			const ungroupedCount = scoped.reduce((sum, skill) => sum + (groupedNames.has(skill.name) ? 0 : 1), 0);
-			const showUngrouped = paneMode === "groups" && scopeGroupRows.length > 0 && ungroupedCount > 0;
-			const paneRows = paneMode === "provider"
-				? [
-					{ key: "all", label: t("groupAll"), count: scoped.length },
-					...[...sourceCounts.entries()]
-						.sort((left, right) => right[1] - left[1] || providerLabelOf(left[0]).localeCompare(providerLabelOf(right[0])))
-						.map(([key, count]) => ({ key: key, label: providerLabelOf(key), count: count }))
-				]
-				: [
-					{ key: "all", label: t("groupAll"), count: scoped.length },
-					...scopeGroupRows.map((group) => ({ key: group.name, label: group.name, count: membersOfGroup(group).length, group })),
-					...(showUngrouped ? [{ key: "", label: t("paneUngrouped"), count: ungroupedCount }] : [])
-				];
-			const activePaneKey = paneMode === "provider" ? providerFilter : groupFilter;
+			const showUngrouped = scopeGroupRows.length > 0 && ungroupedCount > 0;
+			const paneRows = [
+				{ key: "all", label: t("groupAll"), count: scoped.length, kind: "group" },
+				...scopeGroupRows.map((group) => ({ key: group.name, label: group.name, count: membersOfGroup(group).length, group, kind: "group" })),
+				...(showUngrouped ? [{ key: "", label: t("paneUngrouped"), count: ungroupedCount, kind: "group" }] : []),
+				...[...originCounts.entries()]
+					.sort((left, right) => right[1] - left[1] || originLabelOf(left[0]).localeCompare(originLabelOf(right[0])))
+					.map(([key, count]) => ({ key: key, label: originLabelOf(key), count: count, kind: "origin" }))
+			];
+			// 选中行高亮：分组行与来源行各自记住自己的选择。
+			const activePaneKey = originFilter !== "all" ? originFilter : groupFilter;
 			// 「未分组」行消失时不能把列表留在那个看不见的筛选上：所有技能都进了分组、
 			// 或者用户把分组删光了，都要退回「全部」。
 			react.useEffect(() => {
-				if (paneMode === "groups" && groupFilter === "" && !showUngrouped) setGroupFilter("all");
-			}, [paneMode, groupFilter, showUngrouped]);
-			const selectPaneRow = (key) => {
-				if (paneMode === "provider") setProviderFilter(key);
-				else setGroupFilter(key);
+				if (groupFilter === "" && !showUngrouped) setGroupFilter("all");
+			}, [groupFilter, showUngrouped]);
+			// 两类行互斥：选分组就把来源清回「全部」，选来源就把分组清回「全部」，
+			// 免得两层筛选叠加出一个看起来空的列表。
+			const selectPaneRow = (row) => {
+				if (row.kind === "origin") {
+					setOriginFilter(row.key);
+					setGroupFilter("all");
+				} else {
+					setGroupFilter(row.key);
+					setOriginFilter("all");
+				}
 				setBatchMenuOpen(false);
 				setBatchGroupOpen(false);
 			};
@@ -2641,7 +2642,7 @@ function SkillsSection(props) {
 			// 切换工作区：分组/来源筛选归位，批量选择作废（选择是按作用域算的）。
 			react.useEffect(() => {
 				setGroupFilter("all");
-				setProviderFilter("all");
+				setOriginFilter("all");
 				setSelected(new Set());
 				setBatchMode(false);
 				setBatchMenuOpen(false);
@@ -2664,22 +2665,7 @@ function SkillsSection(props) {
 			const querying = normalizedQuery.trim() !== "";
 			const treeRoot = buildSkillTree(filtered);
 			// ── 按来源分区（用户技能 → 各插件各一组 → 系统自带）──────────────
-			// 分区只在「来源」模式下出现：用户想看清每个技能是谁给的。
 			// 顺序固定为 用户 → 插件（按插件名排序） → 系统，插件之间不抢位置。
-			const ORIGIN_USER = "\u0000user";
-			const ORIGIN_SYSTEM = "\u0000system";
-			const ORIGIN_PLUGIN_PREFIX = "\u0000plugin:";
-			const originKeyOf = (skill) => {
-				if (skill.source === "bundled" || skill.source === "runtime") return ORIGIN_SYSTEM;
-				// provider=filesystem / nested 是文件技能（用户根或工作区扫描所得）；
-				// 即使宿主因路径不在受管根目录里标了 pluginProvided，也算「我的技能」。
-				const provider = typeof skill.provider === "string" ? skill.provider : "";
-				if (provider === "filesystem" || provider === "nested") return ORIGIN_USER;
-				if (skill.pluginProvided === true) return ORIGIN_PLUGIN_PREFIX + (provider !== "" ? provider : t("paneProviderUnknown"));
-				return ORIGIN_USER;
-			};
-			const originLabelOf = (key) => key === ORIGIN_USER ? t("originUser") : key === ORIGIN_SYSTEM ? t("originSystem") : t("originPlugin").replace("{plugin}", key.slice(ORIGIN_PLUGIN_PREFIX.length));
-			// 顺序权重：用户 0 < 插件 1 < 系统 2；同级按标签排序。
 			const originSections = (() => {
 				const buckets = new Map();
 				for (const skill of filtered) {
@@ -2909,10 +2895,10 @@ function SkillsSection(props) {
 					const allCounts = countOf(scoped);
 					// 整组开关的作用对象跟随中栏当前那一样（分组 → 该组成员；来源 → 该来源的技能；
 					// 未分组 → 未归入任何分组的技能）。
-					const activeGroup = paneMode === "groups" && groupFilter !== "all" && groupFilter !== "" ? scopeGroupRows.find((group) => group.name === groupFilter) : undefined;
+					const activeGroup = groupFilter !== "all" && groupFilter !== "" ? scopeGroupRows.find((group) => group.name === groupFilter) : undefined;
 					const activeSkills = activeGroup !== undefined ? membersOfGroup(activeGroup) : activeList;
 					const activeCounts = countOf(activeSkills);
-					const bulkKey = paneMode + ":" + activePaneKey;
+					const bulkKey = groupFilter + "\u0000" + originFilter;
 			// 整组开关：统一设成目标值（可编辑成员并非全部开启 → 全开，否则全关）。
 			// 只对可编辑成员发 RPC；整批只挂一次热刷新；逐项失败记进 ops，成功的继续。
 					const applyBulkToggle = (rows, key) => {
@@ -3169,7 +3155,7 @@ function SkillsSection(props) {
 									"aria-pressed": activePaneKey === row.key,
 									title: row.label,
 									onClick: () => {
-										selectPaneRow(row.key);
+										selectPaneRow(row);
 									},
 									children: [row.label, (0, react_jsx_runtime.jsx)("span", {
 										className: c.groupItemCount,
@@ -3230,7 +3216,7 @@ function SkillsSection(props) {
 						}) : null,
 						scoped.length > 0 && activeList.length === 0 ? (0, react_jsx_runtime.jsx)("p", {
 							className: c.status,
-							children: paneMode === "provider" ? t("emptyProvider") : t("groupEmpty")
+							children: t("groupEmpty")
 						}) : null,
 						activeList.length > 0 && filtered.length === 0 ? (0, react_jsx_runtime.jsx)("p", {
 							className: c.status,
@@ -3255,7 +3241,7 @@ function SkillsSection(props) {
 												}), (0, react_jsx_runtime.jsx)("span", { children: t("pluginSkillsToggle") })]
 											})]
 										}) : null,
-						filtered.length > 0 && paneMode === "provider" ? originSections.map((section) => {
+						filtered.length > 0 ? originSections.map((section) => {
 							const collapsed = collapsedOrigins.has(section.key);
 							return (0, react_jsx_runtime.jsxs)("div", {
 								className: c.originSection,
@@ -3271,10 +3257,6 @@ function SkillsSection(props) {
 									children: section.skills.map(renderCard)
 								})]
 							}, section.key);
-						}) : null,
-						filtered.length > 0 && paneMode !== "provider" ? (0, react_jsx_runtime.jsx)("ul", {
-							className: c.cards,
-							children: querying ? filtered.map(renderCard) : [...treeRoot.folders.values()].map(renderFolder).concat(treeRoot.skills.map(renderCard))
 						}) : null,
 												(0, react_jsx_runtime.jsx)("input", {
                                                         ref: singleFileInput,
@@ -3452,38 +3434,17 @@ migrator !== null ? (0, react_jsx_runtime.jsx)(MigrateDialog, {
 				})]
 			});
 
-			// ── 中栏：分组 / 来源 + 内联新建分组 ──────────────────────────────
+			// ── 中栏：分组 + 来源（合并成一列）──────────────────────────────
 			const paneNode = (0, react_jsx_runtime.jsxs)("aside", {
 				className: c.pane,
-				"aria-label": paneMode === "provider" ? t("paneSources") : t("paneGroups"),
-				children: [(0, react_jsx_runtime.jsxs)("div", {
+				"aria-label": t("paneGroups"),
+				children: [(0, react_jsx_runtime.jsx)("div", {
 					className: c.paneHead,
-					children: [(0, react_jsx_runtime.jsx)("h3", {
+					children: (0, react_jsx_runtime.jsx)("h3", {
 						className: c.paneTitle,
 						title: countOfScope(scopeFilter),
 						children: countOfScope(scopeFilter)
-					}), (0, react_jsx_runtime.jsxs)("span", {
-						className: c.paneModes,
-						children: [(0, react_jsx_runtime.jsx)("button", {
-							type: "button",
-							className: c.paneMode,
-							"data-active": paneMode === "groups" ? "true" : void 0,
-							"aria-pressed": paneMode === "groups",
-							onClick: () => {
-								setPaneMode("groups");
-							},
-							children: t("paneGroups")
-						}), (0, react_jsx_runtime.jsx)("button", {
-							type: "button",
-							className: c.paneMode,
-							"data-active": paneMode === "provider" ? "true" : void 0,
-							"aria-pressed": paneMode === "provider",
-							onClick: () => {
-								setPaneMode("provider");
-							},
-							children: t("paneSources")
-						})]
-					})]
+					})
 				}), (0, react_jsx_runtime.jsx)("div", {
 					className: c.paneList,
 					children: paneRows.map((row: any) => {
@@ -3520,7 +3481,7 @@ migrator !== null ? (0, react_jsx_runtime.jsx)(MigrateDialog, {
 								"data-active": activePaneKey === row.key ? "true" : void 0,
 								"aria-pressed": activePaneKey === row.key,
 								onClick: () => {
-									selectPaneRow(row.key);
+									selectPaneRow(row);
 								},
 								children: [(0, react_jsx_runtime.jsx)("span", {
 									className: c.paneItemName,
@@ -3552,16 +3513,16 @@ migrator !== null ? (0, react_jsx_runtime.jsx)(MigrateDialog, {
 								},
 								children: "✎"
 							}) : null]
-						}, paneMode + "\u0000" + row.key);
+						}, row.kind + "\u0000" + row.key);
 					})
-				}), paneMode === "groups" ? (0, react_jsx_runtime.jsx)("button", {
+				}), (0, react_jsx_runtime.jsx)("button", {
 					type: "button",
 					className: c.paneNew,
 					onClick: () => {
 						openGroupEditor(null, scopeFilter);
 					},
 					children: ["＋ ", t("groupNew")]
-				}) : null]
+				})]
 			});
 
 			// ── 主区：滚动区 + 底部居中批量栏 + 顶部居中 Toast ─────────────────
