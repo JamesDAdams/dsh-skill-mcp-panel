@@ -1813,17 +1813,16 @@ const renderChild = (element) => {
   findAll(byClass(view.section, "MCP_card")[0], (n) => n.type === "button" && n.props.children === "工具")[0].props.onClick();
   await flush();
   view = await mount(mcpModalFace);
-  const subTab = byClass(view.section, "MCP_scopeTab").find((b) => b.props.children === "子代理例外");
-  check("工具面板渲染全局/工作区/会话/子代理作用域标签（#55）", () => {
-    assert(subTab !== undefined, "subagent scope tab missing");
+  check("工具面板不再渲染作用域切换标签（作用域由左轨决定）", () => {
+    assert(byClass(view.section, "MCP_scopeTab").length === 0, "scope tabs must be gone from the tools panel");
+    assert(byClass(view.section, "MCP_scopeTabs").length === 0, "scope tab row must be gone");
   });
-  subTab.props.onClick();
-  view = await mount(mcpModalFace);
   const saveToolsBtn = findAll(view.section, (n) => n.type === "button" && n.props.children === "保存禁用列表")[0];
   saveToolsBtn.props.onClick();
   await flush();
-  check("子代理作用域保存发送 scopeKind=subagent 角色覆盖（#55）", () => {
-    assert(tfSaved.some((p) => p.scopeKind === "subagent" && Array.isArray(p.roles?.subagentAllow)), "expected subagent setToolFilter call");
+  check("左轨为「全局」时保存下发档案级 scopeKind=global", () => {
+    // 档案级默认沿用旧的载荷形状：没有 scopeKind，只带 deny。
+    assert(tfSaved.some((p) => (p.scopeKind === undefined || p.scopeKind === "global") && Array.isArray(p.deny)), "expected a global setToolFilter call, got " + JSON.stringify(tfSaved));
   });
   store.delete("dsh-skill-mcp-panel:last-tab");
 }
