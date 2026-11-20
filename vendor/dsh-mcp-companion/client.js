@@ -5184,7 +5184,12 @@ window.__ModuleLoader__.load({
           // A server DSH loads only so one conversation can use it is denied
           // everywhere else and must not read as enabled in this list. Its
           // switch is forced off on every pass, because React restores it.
-          if (typeof server.activeToolCount === 'number' && server.activeToolCount === 0
+          // In a workspace view the panel drives the switches itself (a server can be
+          // off in one workspace and on elsewhere), so leave its state alone.
+          const inWorkspaceScope = card.closest?.('[data-mcp-scope="workspace"]') !== null
+            && card.closest?.('[data-mcp-scope="workspace"]') !== undefined
+          if (!inWorkspaceScope
+            && typeof server.activeToolCount === 'number' && server.activeToolCount === 0
             && typeof server.toolCount === 'number' && server.toolCount > 0) {
             for (const control of Array.from(card.querySelectorAll?.('button[role="switch"]') ?? [])) {
               if (control.getAttribute('data-on') !== 'true') continue

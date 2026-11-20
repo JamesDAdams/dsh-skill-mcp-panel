@@ -1059,8 +1059,9 @@ const renderChild = (element) => {
     assert(cssText.includes(".SKV_page[data-tab=skills]>.SKV_pageTop,.SKV_page[data-tab=mcp]>.SKV_pageTop{padding:0 clamp(20px,3vw,40px)}"), "pageTop padding split across tabs");
     assert(cssText.includes(".SKV_page[data-tab=skills]>.SKV_tabs,.SKV_page[data-tab=mcp]>.SKV_tabs{gap:22px;padding:0 clamp(20px,3vw,40px)}"), "tabs gap/padding split across tabs");
   });
-  check("MCP 正文自己居中并滚动，不吃页面的 align-items", () => {
-    assert(/\.SKV_page\[data-tab=mcp\]>\.MCP_section\{[^}]*margin:0 auto[^}]*overflow-y:auto/.test(cssText), "mcp body must center and scroll on its own");
+  check("MCP 正文占满宽度并自己滚动（三栏外壳）", () => {
+    assert(/\.SKV_page\[data-tab=mcp\]>\.MCP_section\{[^}]*max-width:none[^}]*overflow-y:auto/.test(cssText), "mcp body must fill the width and scroll on its own");
+    assert(/\.MCP_section\[data-shell=three-column\]\{display:grid;grid-template-columns:184px 196px/.test(cssText), "mcp shell must be a three-column grid");
   });
   check("切页签有淡入动画，且 reduced-motion 会关掉它", () => {
     assert(cssText.includes("@keyframes skvTabIn"), "fade keyframes missing");
