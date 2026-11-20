@@ -340,7 +340,10 @@ check("the MCP panel carries a how-it-works button that toggles the doc block", 
   storedTab = "mcp";
   let section = renderSection();
   assert.equal(section.props.className, "MCP_section");
-  const buttons = section.props.children[0].props.children.filter((child) => child && child.type === "button");
+  // 三栏外壳：第 0 个孩子是工作区 rail，中栏是分组；头部按 class 找，不再吃东西顺序。
+  const head = section.props.children.find((child) => child && child.props && child.props.className === "MCP_head");
+  assert.ok(head, "MCP head missing from the three-column shell");
+  const buttons = head.props.children.filter((child) => child && child.type === "button");
   assert.equal(buttons.length, 2, "head should hold the how-it-works button plus refresh");
   assert.equal(buttons[0].props["aria-expanded"], false);
   assert.equal(buttons[0].props.children, "注册机制");
