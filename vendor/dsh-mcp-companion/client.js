@@ -38,6 +38,8 @@ window.__ModuleLoader__.load({
 
     const ENDPOINT = '/local-dsh-customizer/mcp-servers'
     const CLIENT_VERSION = '1.5.1'
+    /** The Host's MCP resource bridge: never a user-chosen server. */
+    const RESOURCE_BRIDGE_NAME = 'mcp-resource-servers'
     const CHIP_SLOT = 'conversation.hero.options'
     const CHIP_ID = 'mcp-companion.conversation'
 
@@ -940,7 +942,11 @@ window.__ModuleLoader__.load({
         if (menu === null) return
         const servers = Array.isArray(payload?.servers) ? payload.servers : []
         const rows = servers.filter((server) => server !== null && typeof server === 'object'
-          && (server.toggleable === true || server.active === true))
+          && (server.toggleable === true || server.active === true)
+          // `mcp-resource-servers` is the Host's resource bridge, not a server the
+          // user picked: it is always on, has nothing to toggle, and only adds a
+          // line nobody acts on.
+          && server.name !== RESOURCE_BRIDGE_NAME)
 
         const head = document.createElement('div')
         head.className = 'dsh-mcp-head'
