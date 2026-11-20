@@ -436,6 +436,9 @@ window.__ModuleLoader__.load({
       '.dsh-mcp-switch[data-on="true"]{background:var(--dsw-alias-label-primary, #f2f2f2);border-color:transparent}',
       '.dsh-mcp-switch[data-on="true"]::after{transform:translateX(13px);',
       'background:var(--dsw-alias-bg-base, #151517)}',
+      '.dsh-mcp-switch[data-busy="true"]{opacity:.55}',
+      '.dsh-mcp-busy{animation:dsh-mcp-pulse 1s ease-in-out infinite}',
+      '@keyframes dsh-mcp-pulse{0%,100%{opacity:.45}50%{opacity:1}}',
       '.dsh-mcp-note{padding:10px 8px;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1.45}',
       '.dsh-mcp-foot{padding:8px 8px 2px;font-size:11px;line-height:1.45;color:var(--dsw-alias-label-secondary);',
       'border-top:1px solid var(--dsw-alias-border-l1, rgba(255,255,255,.08));margin-top:4px}',
@@ -533,6 +536,14 @@ window.__ModuleLoader__.load({
         if (typeof sessionId === 'string' && sessionId.length > 0) node.setAttribute('data-mcpc-session', sessionId)
         else node.removeAttribute('data-mcpc-session')
       } catch { /* a node that refuses attributes must not block the chip */ }
+
+      // Which servers have a write in flight. Kept outside the DOM because the
+      // list is rebuilt on every poll: a row-local flag vanished on the next
+      // render, which is why the indicator never showed up.
+      const busyServers = new Set()
+      /** When each key started writing, so the indicator can hold a minimum. */
+      const busySince = new Map()
+      const MIN_BUSY_MS = 600
 
       const button = document.createElement('button')
       button.type = 'button'
@@ -900,11 +911,33 @@ window.__ModuleLoader__.load({
         row.appendChild(status)
         row.appendChild(toggle)
 
-        const setBusy = (on) => {
-          status.style.display = on ? 'inline' : 'none'
-          if (on) toggle.dataset.busy = 'true'
+        const busyKey = group.names.slice().sort().join('|')
+        const paintBusy = (wanted) => {
+          status.style.display = wanted ? 'inline' : 'none'
+          if (wanted) toggle.dataset.busy = 'true'
           else delete toggle.dataset.busy
         }
+        // A write that settles in 30 ms flashed the indicator for one frame, so
+        // it read as "nothing happens". Keep it up for a beat.
+        const setBusy = (state) => {
+          if (state === true) {
+            busyServers.add(busyKey)
+            busySince.set(busyKey, Date.now())
+            paintBusy(true)
+            return
+          }
+          const started = busySince.get(busyKey) ?? 0
+          const left = Math.max(0, MIN_BUSY_MS - (Date.now() - started))
+          const finish = () => {
+            busyServers.delete(busyKey)
+            busySince.delete(busyKey)
+            paintBusy(false)
+          }
+          if (left === 0) finish()
+          else window.setTimeout(finish, left)
+        }
+        // A row rebuilt while its write is still running must come back busy.
+        if (busyServers.has(busyKey)) setBusy(true)
 
         // The switch only ever writes this conversation's override. It never
         // loads, enables or edits the profile: a server DSH has not loaded has
@@ -919,7 +952,7 @@ window.__ModuleLoader__.load({
             Promise.all(group.members
               .filter((member) => member?.disabled === true)
               .map((member) => fetchJson(urlFor('enableServer=' + encodeURIComponent(labelOf(member))))))
-              .then(() => { render() })
+              .then(() => { setBusy(false); render() })
               .catch(() => { setBusy(false); render() })
             return
           }
