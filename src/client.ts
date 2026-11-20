@@ -3772,7 +3772,6 @@ migrator !== null ? (0, react_jsx_runtime.jsx)(MigrateDialog, {
                         enable: "启用",
                         disable: "停用",
                         stateEnabled: "已启用",
-                        statePartial: "部分停用",
                         railWorkspaces: "工作区",
                         mcpScopeGlobal: "全局（档案）",
                         stateDisabled: "已停用",
@@ -3963,7 +3962,6 @@ authStdioHint: "stdio 服务器的令牌没有单独的认证项——写在这�
                         enable: "Enable",
                         disable: "Disable",
                         stateEnabled: "Enabled",
-                        statePartial: "Partially off",
                         railWorkspaces: "Workspaces",
                         mcpScopeGlobal: "Global (profile)",
                         stateDisabled: "Disabled",
@@ -4947,14 +4945,18 @@ function mcpWireScalar(text) {
                                 ? (Array.isArray(toolPolicy.deny) ? toolPolicy.deny : [])
                                 : (Array.isArray(toolPolicy.workspaces?.[scopeKey]) ? toolPolicy.workspaces[scopeKey] : []));
                         const prefixOf = (server) => "mcp__" + server.serverName + "__";
-                        /** 这台服务器在给定作用域里的开关状态：on / off / partial。 */
+                        /**
+                         * 这台服务器在给定作用域里的开关：只有 on / off。
+                         *
+                         * 「部分工具被关掉」也算 off——用户在这里看到的是一个开关，
+                         * 不是一份清单；只要有工具在这个工作区里被禁用，这台服务器就
+                         * 不是完整可用的。
+                         */
                         const serverStateIn = (server, scopeKey) => {
                                 if (scopeKey === "global") return server.enabled === true ? "on" : "off";
                                 const prefix = prefixOf(server);
-                                const denied = scopeDeny(scopeKey).filter((name) => name.startsWith(prefix)).length;
-                                if (denied === 0) return "on";
-                                const total = typeof server.toolCount === "number" ? server.toolCount : 0;
-                                return total > 0 && denied >= total ? "off" : "partial";
+                                const denied = scopeDeny(scopeKey).some((name) => name.startsWith(prefix));
+                                return denied ? "off" : "on";
                         };
                         const inWorkspaceScope = mcpScope !== "global";
 
@@ -5518,7 +5520,7 @@ function mcpWireScalar(text) {
 																		disabled: server.disabledExpr === true,
 																		title: server.disabledExpr === true ? t("disabledExprHint") : (enabledHere ? t("disable") : t("enable")),
 																		onClick: () => applyToggle(server),
-																		children: t !== null ? (stateHere === "partial" ? t("statePartial") : enabledHere ? t("stateEnabled") : t("stateDisabled")) : ""
+																		children: t !== null ? (enabledHere ? t("stateEnabled") : t("stateDisabled")) : ""
 																	})]
                                                         }), (0, react_jsx_runtime.jsx)("span", { className: m.spacer }), (0, react_jsx_runtime.jsx)("button", {
                                                                 type: "button",

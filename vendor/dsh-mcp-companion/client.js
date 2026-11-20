@@ -5236,9 +5236,19 @@ window.__ModuleLoader__.load({
               control.setAttribute('aria-checked', 'false')
               control.title = 'Off in the profile: this server is denied everywhere and '
                 + 'allowed only in the conversation where you switched it on.'
-              const label = Array.from(control.childNodes)
-                .find((node) => node.nodeType === 3 && node.nodeValue.trim().length > 0)
-              if (label !== undefined && label.nodeValue.trim() === 'Enabled') label.nodeValue = 'Disabled'
+              // The panel renders the state word as its own button now, so the
+              // text node this used to rewrite is gone: update that button too,
+              // or the row reads "Enabled" with the switch visibly off.
+              const labelButton = card.querySelector?.('.SKV_switchText')
+              if (labelButton !== null && labelButton !== undefined) {
+                labelButton.textContent = labelButton.textContent
+                  .replace('Enabled', 'Disabled')
+                  .replace('\u5df2\u542f\u7528', '\u5df2\u505c\u7528')
+              } else {
+                const label = Array.from(control.childNodes)
+                  .find((node) => node.nodeType === 3 && node.nodeValue.trim().length > 0)
+                if (label !== undefined && label.nodeValue.trim() === 'Enabled') label.nodeValue = 'Disabled'
+              }
             }
           }
 
