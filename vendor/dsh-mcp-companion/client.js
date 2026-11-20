@@ -812,13 +812,14 @@ window.__ModuleLoader__.load({
        * `tools.restrict` work with, so a server name would change nothing.
        */
       function flipAll(names, wanted, attempt, onDone) {
-        if (!hasSession) {
-          report('chip-toggle', 'no session: nothing to override')
-          return
-        }
         const tries = typeof attempt === 'number' ? attempt : 0
+        // On the New Session screen there is no conversation yet, so a
+        // per-conversation override has nowhere to live. The profile switch is
+        // the only meaningful target there, and the next conversation inherits
+        // it.
         const steps = names.map((name) => fetchJson(urlFor(
-          'toggleServer=' + encodeURIComponent(name) + '&enabled=' + (wanted ? 'true' : 'false'),
+          (hasSession ? 'toggleServer=' : 'toggle=') + encodeURIComponent(name)
+            + '&enabled=' + (wanted ? 'true' : 'false'),
         )))
         Promise.all(steps)
           .then((results) => {
@@ -827,7 +828,15 @@ window.__ModuleLoader__.load({
               // A server that has not registered its tools yet cannot be
               // switched: the write is retried while it starts up, instead of
               // failing where the reader cannot see it.
-              if (failed.retry === true && tries < 8) {
+              if (failed.retry === true && tries < 40) {
+                // A server that is merely *stopped* (not disabled) publishes
+                // nothing either, and retrying alone never fixes that: ask the
+                // host to load it once, then keep retrying while it comes up.
+                if (tries === 0) {
+                  for (const name of names) {
+                    void fetchJson(urlFor('enableServer=' + encodeURIComponent(name))).catch(() => {})
+                  }
+                }
                 window.setTimeout(() => { flipAll(names, wanted, tries + 1, onDone) }, 700)
                 return
               }
@@ -1079,7 +1088,7 @@ window.__ModuleLoader__.load({
         foot.className = 'dsh-mcp-foot'
         foot.textContent = hasSession
           ? 'This setting only applies to this conversation.'
-          : 'Open a conversation to set its MCP servers.'
+          : 'No conversation yet: these switches change the profile default.'
 
         while (menu.firstChild !== null) menu.removeChild(menu.firstChild)
         menu.appendChild(head)
