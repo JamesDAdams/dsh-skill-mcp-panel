@@ -3910,6 +3910,7 @@ toolsFilteredCount: "筛出 {visible}/{total}",
 toolsLoading: "正在读取工具…",
 toolsEmpty: "这台服务器还没注册任何工具（可能没连上）。",
 toolsDisconnected: "服务器未连接：先启用它，工具清单才有内容。",
+                        toolsOfflineList: "服务器当前未运行：这份清单来自上次已知的结果，可能已过期。",
 toolsDisabledCount: "已禁用 {count} 个",
 toolsVisibilitySummary: "对模型可见 {visible}/{total} · 已过滤 {disabled} 个",
 toolsVisibilityStopped: "服务器已停用（对模型可见 0/{total} · 预设过滤 {disabled} 个）",
@@ -4100,6 +4101,7 @@ toolsFilteredCount: "{visible}/{total} shown",
 toolsLoading: "Loading tools…",
 toolsEmpty: "This server has no registered tools yet (probably not connected).",
 toolsDisconnected: "Server not connected: enable it first so its tools appear.",
+                        toolsOfflineList: "The server is not running: this list comes from the last known result and may be stale.",
 toolsDisabledCount: "{count} disabled",
 toolsVisibilitySummary: "Visible to agents: {visible}/{total} · {disabled} filtered out",
 toolsVisibilityStopped: "Server stopped (0/{total} visible · {disabled} filtered out)",
@@ -5214,6 +5216,8 @@ function mcpWireScalar(text) {
                         			policy: policyObj,
                         			// 作用域不再由面板里的标签切换：左轨选中的工作区就是编辑对象，
                         			// 「Global (profile)」则是档案级默认。
+                        			// 清单来源：live（服务器在跑）／cache（上次存下的）／probe（现场连了一次）。
+                        			source: typeof tools?.source === "string" ? tools.source : "live",
                         			scopeKind: mcpScope === "global" ? "global" : "workspace",
                         			scopeWs: mcpScope === "global" ? (defaultWs ?? "") : mcpScope
                         		};
@@ -5368,6 +5372,7 @@ function mcpWireScalar(text) {
                         		className: m.toolsPanel,
                         		children: [
                         			(0, react_jsx_runtime.jsx)("p", { className: m.hint, children: scopeHintText }),
+                        			panel.source === "cache" || panel.source === "probe" ? (0, react_jsx_runtime.jsx)("p", { className: m.hint, children: t("toolsOfflineList") }) : null,
                         			(0, react_jsx_runtime.jsxs)("div", {
                         				className: m.toolbar,
                         				children: [(0, react_jsx_runtime.jsx)("input", {
