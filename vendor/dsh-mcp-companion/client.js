@@ -541,6 +541,8 @@ window.__ModuleLoader__.load({
       // list is rebuilt on every poll: a row-local flag vanished on the next
       // render, which is why the indicator never showed up.
       const busyServers = new Set()
+      /** Servers whose start-up we are waiting for: key -> deadline (ms). */
+      const booting = new Map()
       /** When each key started writing, so the indicator can hold a minimum. */
       const busySince = new Map()
       const MIN_BUSY_MS = 600
@@ -936,8 +938,9 @@ window.__ModuleLoader__.load({
           if (left === 0) finish()
           else window.setTimeout(finish, left)
         }
-        // A row rebuilt while its write is still running must come back busy.
-        if (busyServers.has(busyKey)) setBusy(true)
+        // A row rebuilt while its write is running, or while the server it just
+        // switched on is still loading, must come back busy.
+        if (busyServers.has(busyKey) || booting.has(busyKey)) paintBusy(true)
 
         // The switch only ever writes this conversation's override. It never
         // loads, enables or edits the profile: a server DSH has not loaded has
@@ -952,13 +955,17 @@ window.__ModuleLoader__.load({
             Promise.all(group.members
               .filter((member) => member?.disabled === true)
               .map((member) => fetchJson(urlFor('enableServer=' + encodeURIComponent(labelOf(member))))))
-              .then(() => { setBusy(false); render() })
+              .then(() => { markBooting(busyKey); setBusy(false); render() })
               .catch(() => { setBusy(false); render() })
             return
           }
           setBusy(true)
           // The indicator stays until the write settles; a retry keeps it up.
-          flipAll(group.names, !on, 0, (ok) => { if (ok !== undefined) setBusy(false) })
+          flipAll(group.names, !on, 0, (ok) => {
+            // Switching on means waiting for the server itself, not just the write.
+            if (ok === true && !on) markBooting(busyKey)
+            if (ok !== undefined) setBusy(false)
+          })
         }
         row.tabIndex = 0
         row.addEventListener('click', apply)
@@ -969,6 +976,29 @@ window.__ModuleLoader__.load({
           }
         })
         return row
+      }
+
+      /**
+       * A server that was just switched on spends seconds loading before it
+       * publishes anything. The write settles long before that, so the spinner
+       * used to vanish while the server was still coming up.
+       */
+      function markBooting(key) {
+        booting.set(key, Date.now() + 45000)
+      }
+
+      function serverReady(group) {
+        // Only a running server (or a failed one) ends the wait. `enabled:false`
+        // is the *stale* pre-write state the next poll still carries, and
+        // treating it as ready ended the spinner ~1s after the click.
+        return group.members.some((member) => member?.active === true || member?.phase === 'failed')
+      }
+
+      function sweepBooting(group) {
+        const key = group.names.slice().sort().join('|')
+        const deadline = booting.get(key)
+        if (deadline === undefined) return
+        if (serverReady(group) || Date.now() > deadline) booting.delete(key)
       }
 
       function render() {
@@ -1005,6 +1035,7 @@ window.__ModuleLoader__.load({
           // One malformed row must never blank the whole picker: the failure of
           // a single entry is contained and named instead.
           for (const group of groupServers(rows)) {
+            sweepBooting(group)
             try {
               list.appendChild(rowElement(group))
             } catch (error) {
