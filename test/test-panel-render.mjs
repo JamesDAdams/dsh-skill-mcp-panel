@@ -1816,5 +1816,66 @@ const renderChild = (element) => {
   store.delete("dsh-skill-mcp-panel:last-tab");
 }
 
+// ── 21. 来源模式：按 provenance 分区（用户 → 插件 → 系统），可折叠 ──────────
+{
+  const mixed = [
+    { name: "mine", description: "M", provider: "filesystem", source: "user", enabled: true, pluginProvided: false, rel: "mine/SKILL.md", scope: { kind: "global" } },
+    { name: "docx", description: "D", provider: "dsh-office", source: "custom", enabled: true, pluginProvided: true, rel: "", scope: { kind: "global" } },
+    { name: "xlsx", description: "X", provider: "dsh-office", source: "custom", enabled: true, pluginProvided: true, rel: "", scope: { kind: "global" } },
+    { name: "badge", description: "B", provider: "dsh-badge", source: "custom", enabled: true, pluginProvided: true, rel: "", scope: { kind: "global" } },
+    { name: "dsh-doc", description: "H", provider: "dsh-agent-preset", source: "bundled", enabled: true, pluginProvided: true, rel: "", scope: { kind: "global" } },
+    // 文件技能：即使宿主把路径不在受管根目录的它标成 pluginProvided，也要归到「我的技能」。
+    { name: "loose", description: "L", provider: "filesystem", source: "user", enabled: true, pluginProvided: true, rel: "loose/SKILL.md", scope: { kind: "global" } }
+  ];
+  reset(mixed, "skills");
+  let view = await mount(rpc);
+  // 切到「来源」模式：中栏第二个 mode 按钮（与 2. 来源模式 同款）。
+  byClass(view.section, "SKV_paneMode")[1].props.onClick();
+  view = await mount(rpc);
+
+  const sections = byClass(view.section, "SKV_originSection");
+  check("来源模式渲染按 provenance 分区的折叠区块", () => {
+    assert(sections.length === 4, "expected 4 origin sections (user, 2 plugins, system), got " + sections.length);
+  });
+  const labels = sections.map((s) => {
+    const head = byClass(s, "SKV_originHead")[0];
+    return byClass(head, "SKV_originLabel")[0].props.children;
+  });
+  check("分区顺序：用户 → 插件（按名排序）→ 系统", () => {
+    assert(labels[0] === "我的技能", "first section must be user skills, got " + labels[0]);
+    assert(labels[labels.length - 1] === "系统自带", "last section must be system, got " + labels[labels.length - 1]);
+    assert(labels.includes("插件：dsh-badge") && labels.includes("插件：dsh-office"), "both plugins must get their own section, got " + JSON.stringify(labels));
+    assert(labels.indexOf("插件：dsh-badge") < labels.indexOf("插件：dsh-office"), "plugin sections must be sorted by name");
+  });
+  const counts = sections.map((s) => findAll(s, (n) => n.type === "span" && typeof n.props.children === "number")[0].props.children);
+  check("每个插件分组只含自己的技能（2/1/2/1）", () => {
+    assert(JSON.stringify(counts) === JSON.stringify([2, 1, 2, 1]), "expected per-section counts 2,1,2,1 got " + JSON.stringify(counts));
+  });
+  const userSection = sections[0];
+  check("provider=filesystem 的文件技能归入「我的技能」而非插件分组", () => {
+    const names = byClass(userSection, "SKV_card").map((c) => c.props["data-skill-name"]);
+    assert(names.includes("mine") && names.includes("loose"), "both filesystem skills must be user-origin, got " + JSON.stringify(names));
+  });
+  // 折叠：点区块头应隐藏该区块的卡片列表。
+  const firstHead = byClass(sections[0], "SKV_originHead")[0];
+  firstHead.props.onClick();
+  view = await mount(rpc);
+  const after = byClass(view.section, "SKV_originSection");
+  check("点击区块头可折叠该来源分组", () => {
+    assert(after[0].props["data-collapsed"] === "true", "first section must collapse");
+    assert(byClass(after[0], "SKV_cards").length === 0, "collapsed section must hide its card list");
+    assert(byClass(after[1], "SKV_cards").length === 1, "sibling sections must stay open");
+  });
+  // 分组模式（默认）不应出现分区。
+  byClass(view.section, "SKV_paneMode")[0].props.onClick();
+  view = await mount(rpc);
+  check("分组模式不渲染来源分区（保持原列表）", () => {
+    assert(byClass(view.section, "SKV_originSection").length === 0, "group mode must not render origin sections");
+    // 分组模式下 rel 为空的技能会落进文件树文件夹里，卡片挂在文件夹下：只要没有分区即可。
+    assert(byClass(view.section, "SKV_originHead").length === 0, "group mode must not render origin headers");
+  });
+  store.delete("dsh-skill-mcp-panel:last-tab");
+}
+
 console.log("\n" + (failures === 0 ? "ALL HARNESS CHECKS PASSED" : failures + " harness check(s) FAILED"));
 process.exit(failures === 0 ? 0 : 1);
