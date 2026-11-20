@@ -712,7 +712,8 @@ const assert = (cond, message) => { if (!cond) throw new Error(message); };
   const view = await mount(mcpFace);
   check("MCP tab renders the workspace rail with data-tab=mcp", () => {
     assert(view.page.props["data-tab"] === "mcp", "data-tab must follow the tab: " + view.page.props["data-tab"]);
-    assert(view.section.props.className === "MCP_section", "MCP root changed: " + view.section.props.className);
+    // 与技能页共用同一套三栏外壳类，MCP_section 只负责 MCP 自己的样式。
+    assert(view.section.props.className === "SKV_section MCP_section", "MCP root changed: " + view.section.props.className);
     // 与技能页同一套 rail 类；不再有中栏（用户不要分组列）。
     assert(byClass(view.section, "SKV_rail").length === 1, "the workspace rail must render on the MCP tab");
     assert(byClass(view.section, "SKV_pane").length === 0, "the groups pane must stay gone");
@@ -1062,8 +1063,8 @@ const renderChild = (element) => {
     assert(cssText.includes(".SKV_page[data-tab=skills]>.SKV_tabs,.SKV_page[data-tab=mcp]>.SKV_tabs{gap:22px;padding:0 clamp(20px,3vw,40px)}"), "tabs gap/padding split across tabs");
   });
   check("MCP 正文占满宽度并自己滚动（三栏外壳）", () => {
-    assert(/\.SKV_page\[data-tab=mcp\]>\.MCP_section\{[^}]*max-width:none[^}]*overflow-y:auto/.test(cssText), "mcp body must fill the width and scroll on its own");
-    assert(/\.MCP_section\[data-shell=three-column\]\{display:grid;grid-template-columns:184px minmax\(0,1fr\)/.test(cssText), "mcp shell must be a two-column grid (rail + content)");
+    assert(/\.SKV_page\[data-tab=mcp\]>\.MCP_section\{[^}]*max-width:none[^}]*overflow:hidden/.test(cssText), "mcp shell must fill the width and clip, not scroll as a whole");
+    assert(/\.MCP_section>\.SKV_mainScroll\{align-items:stretch/.test(cssText), "mcp content column must stretch like the skills one");
   });
   check("切页签有淡入动画，且 reduced-motion 会关掉它", () => {
     assert(cssText.includes("@keyframes skvTabIn"), "fade keyframes missing");

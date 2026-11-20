@@ -233,7 +233,7 @@ check("the remembered tab is reopened on the next mount", () => {
   assert.equal(skillsTab.props["data-active"], "false");
   // MCP 正文：t 必须是 MCP 字典绑定（技能字典里没有 title 这个键的同一句话）。
   const body = page.props.children[2];
-  assert.equal(body.type(body.props).props.className, "MCP_section");
+  assert.equal(body.type(body.props).props.className, "SKV_section MCP_section");
   storedTab = null;
 });
 
@@ -339,9 +339,11 @@ check("the MCP panel carries a how-it-works button that toggles the doc block", 
   };
   storedTab = "mcp";
   let section = renderSection();
-  assert.equal(section.props.className, "MCP_section");
-  // 三栏外壳：第 0 个孩子是工作区 rail，中栏是分组；头部按 class 找，不再吃东西顺序。
-  const head = section.props.children.find((child) => child && child.props && child.props.className === "MCP_head");
+  assert.equal(section.props.className, "SKV_section MCP_section");
+  // 三栏外壳：第 0 个孩子是工作区 rail，第 1 个是正文列；头部在正文列里，按 class 找。
+  const column = section.props.children.find((child) => child && child.props && child.props.className === "SKV_mainScroll");
+  assert.ok(column, "MCP content column missing");
+  const head = column.props.children.find((child) => child && child.props && child.props.className === "MCP_head");
   assert.ok(head, "MCP head missing from the three-column shell");
   const buttons = head.props.children.filter((child) => child && child.type === "button");
   assert.equal(buttons.length, 2, "head should hold the how-it-works button plus refresh");
@@ -350,7 +352,8 @@ check("the MCP panel carries a how-it-works button that toggles the doc block", 
   assert.equal(section.props.children.filter((child) => child && child.props && child.props.className === "MCP_doc").length, 0);
   buttons[0].props.onClick();
   section = renderSection();
-  const doc = section.props.children.find((child) => child && child.props && child.props.className === "MCP_doc");
+  const columnAfter = section.props.children.find((child) => child && child.props && child.props.className === "SKV_mainScroll");
+  const doc = columnAfter.props.children.find((child) => child && child.props && child.props.className === "MCP_doc");
   assert.ok(doc, "doc block must render after the toggle");
   const text = doc.props.children.map((child) => String(child.props.children)).join(" | ");
   assert.ok(text.includes("DSH 的 MCP 注册机制"), "doc must explain the registration mechanism");
