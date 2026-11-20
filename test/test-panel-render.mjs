@@ -1829,6 +1829,8 @@ const renderChild = (element) => {
     { name: "xlsx", description: "X", provider: "dsh-office", source: "custom", enabled: true, pluginProvided: true, rel: "", scope: { kind: "global" } },
     { name: "badge", description: "B", provider: "dsh-badge", source: "custom", enabled: true, pluginProvided: true, rel: "", scope: { kind: "global" } },
     { name: "dsh-doc", description: "H", provider: "dsh-agent-preset", source: "bundled", enabled: true, pluginProvided: true, rel: "", scope: { kind: "global" } },
+    // ~/.agents/skills 里的第三方技能（pi/Codex 布局）：source=user-agents，归入「导入」。
+    { name: "imported-one", description: "I", provider: "filesystem", source: "user-agents", enabled: true, pluginProvided: false, rel: "imported-one/SKILL.md", scope: { kind: "global" } },
     // 文件技能：即使宿主把路径不在受管根目录的它标成 pluginProvided，也要归到「我的技能」。
     { name: "loose", description: "L", provider: "filesystem", source: "user", enabled: true, pluginProvided: true, rel: "loose/SKILL.md", scope: { kind: "global" } }
   ];
@@ -1838,7 +1840,7 @@ const renderChild = (element) => {
 
   const sections = byClass(view.section, "SKV_originSection");
   check("来源模式渲染按 provenance 分区的折叠区块", () => {
-    assert(sections.length === 4, "expected 4 origin sections (user, 2 plugins, system), got " + sections.length);
+    assert(sections.length === 5, "expected 5 origin sections (user, imported, 2 plugins, system), got " + sections.length);
   });
   const labels = sections.map((s) => {
     const head = byClass(s, "SKV_originHead")[0];
@@ -1851,13 +1853,27 @@ const renderChild = (element) => {
     assert(labels.indexOf("插件：dsh-badge") < labels.indexOf("插件：dsh-office"), "plugin sections must be sorted by name");
   });
   const counts = sections.map((s) => findAll(s, (n) => n.type === "span" && typeof n.props.children === "number")[0].props.children);
-  check("每个插件分组只含自己的技能（2/1/2/1）", () => {
-    assert(JSON.stringify(counts) === JSON.stringify([2, 1, 2, 1]), "expected per-section counts 2,1,2,1 got " + JSON.stringify(counts));
+  check("每个插件分组只含自己的技能（1/1/1/2/2）", () => {
+    assert(JSON.stringify(counts) === JSON.stringify([1, 1, 1, 2, 2]), "expected per-section counts 1,1,1,2,2 got " + JSON.stringify(counts));
+  });
+  check("~/.agents 导入的技能单独成区，不混进「我的技能」", () => {
+    const labels2 = sections.map((s) => byClass(byClass(s, "SKV_originHead")[0], "SKV_originLabel")[0].props.children);
+    const userOnly = [labels2[0]];
+    const importedIdx = labels2.indexOf("导入的技能");
+    assert(importedIdx > 0, "imported section must exist, got " + JSON.stringify(labels2));
+    const importedSection = sections[importedIdx];
+    const importedNames = byClass(importedSection, "SKV_card").map((c) => c.props["data-skill-name"]);
+    assert(importedNames.includes("imported-one"), "the ~/.agents skill must be in Imported, got " + JSON.stringify(importedNames));
+    const userNames = byClass(sections[0], "SKV_card").map((c) => c.props["data-skill-name"]);
+    assert(!userNames.includes("imported-one"), "imported skill must not stay in My skills");
   });
   const userSection = sections[0];
-  check("provider=filesystem 的文件技能归入「我的技能」而非插件分组", () => {
+  check("pluginProvided 优先于 provider：随包技能不混进「我的技能」", () => {
     const names = byClass(userSection, "SKV_card").map((c) => c.props["data-skill-name"]);
-    assert(names.includes("mine") && names.includes("loose"), "both filesystem skills must be user-origin, got " + JSON.stringify(names));
+    assert(names.includes("mine"), "the plain filesystem skill must stay in My skills, got " + JSON.stringify(names));
+    assert(!names.includes("loose"), "a pluginProvided skill must leave My skills even when provider=filesystem");
+    const allPluginNames = sections.filter((s, i) => i > 0).flatMap((s) => byClass(s, "SKV_card").map((c) => c.props["data-skill-name"]));
+    assert(allPluginNames.includes("loose"), "the pluginProvided skill must land in a plugin/system section");
   });
   // 折叠：点区块头应隐藏该区块的卡片列表。
   const firstHead = byClass(sections[0], "SKV_originHead")[0];

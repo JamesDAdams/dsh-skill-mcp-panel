@@ -630,6 +630,7 @@ const cssGroups = ".SKV_groupItemWrap{position:relative;display:inline-flex;alig
 			paneProviderUnknown: "未知来源",
 			emptyProvider: "该来源下暂无技能。",
 			originUser: "我的技能",
+			originImported: "导入的技能",
 			originSystem: "系统自带",
 			originPlugin: "插件：{plugin}",
 			// 布局开关：简洁模式 = 收起左右两栏，把工作区与分组做成列表上方的筛选条（Issue #50）
@@ -776,6 +777,7 @@ const cssGroups = ".SKV_groupItemWrap{position:relative;display:inline-flex;alig
 			paneProviderUnknown: "Unknown source",
 			emptyProvider: "No skills from this source yet.",
 			originUser: "My skills",
+			originImported: "Imported",
 			originSystem: "Built-in",
 			originPlugin: "Plugin: {plugin}",
 			layoutToCompact: "Switch to the compact layout",
@@ -2411,6 +2413,7 @@ function SkillsSection(props) {
 			// ── 中栏：分组 + 来源（合并）─────────────────────────────────────
 			// 分组是筛选器（可新建），来源决定右侧列表怎么分区；两者同时生效。
 			const ORIGIN_USER = "\u0000user";
+			const ORIGIN_IMPORTED = "\u0000imported";
 			const ORIGIN_SYSTEM = "\u0000system";
 			const ORIGIN_PLUGIN_PREFIX = "\u0000plugin:";
 			const originKeyOf = (skill) => {
@@ -2418,11 +2421,22 @@ function SkillsSection(props) {
 				// provider=filesystem / nested 是文件技能（用户根或工作区扫描所得）；
 				// 即使宿主因路径不在受管根目录里标了 pluginProvided，也算「我的技能」。
 				const provider = typeof skill.provider === "string" ? skill.provider : "";
+				// ~/.agents/skills（user-agents）与项目里的 .agents/skills 是第三方导入的技能
+				// （pi/Codex 布局），不是用户自己写的，单独成一个「导入」分区。
+				const source = typeof skill.source === "string" ? skill.source : "";
+				if (source === "user-agents" || source === "project-agents") return ORIGIN_IMPORTED;
+				// pluginProvided 是宿主的权威判定（技能不在受管根目录下、改不动）：
+				// 它优先于 provider——因为宿主会把随包技能重标成 "filesystem"。
+				// 宿主会把随包技能重标成 "filesystem"，直接用它当插件名会得到一个
+				// 莫名其妙的「Plugin: filesystem」标题；这种情况归入系统自带。
+				if (skill.pluginProvided === true) {
+					if (provider === "" || provider === "filesystem") return ORIGIN_SYSTEM;
+					return ORIGIN_PLUGIN_PREFIX + provider;
+				}
 				if (provider === "filesystem" || provider === "nested") return ORIGIN_USER;
-				if (skill.pluginProvided === true) return ORIGIN_PLUGIN_PREFIX + (provider !== "" ? provider : t("paneProviderUnknown"));
 				return ORIGIN_USER;
 			};
-			const originLabelOf = (key) => key === ORIGIN_USER ? t("originUser") : key === ORIGIN_SYSTEM ? t("originSystem") : t("originPlugin").replace("{plugin}", key.slice(ORIGIN_PLUGIN_PREFIX.length));
+			const originLabelOf = (key) => key === ORIGIN_USER ? t("originUser") : key === ORIGIN_IMPORTED ? t("originImported") : key === ORIGIN_SYSTEM ? t("originSystem") : t("originPlugin").replace("{plugin}", key.slice(ORIGIN_PLUGIN_PREFIX.length));
 			// 来源筛选：originFilter 存来源键。
 			const originCounts = new Map();
 			for (const skill of scoped) {
@@ -2677,7 +2691,7 @@ function SkillsSection(props) {
 					key,
 					label: originLabelOf(key),
 					skills: list,
-					order: key === ORIGIN_USER ? 0 : key === ORIGIN_SYSTEM ? 2 : 1
+					order: key === ORIGIN_USER ? 0 : key === ORIGIN_IMPORTED ? 1 : key === ORIGIN_SYSTEM ? 3 : 2
 				})).sort((left, right) => left.order - right.order || left.label.localeCompare(right.label));
 			})();
 			const [collapsedOrigins, setCollapsedOrigins] = react.useState(() => new Set());
