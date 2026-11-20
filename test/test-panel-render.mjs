@@ -1516,6 +1516,27 @@ const renderChild = (element) => {
     const stoppedText = findAll(stoppedMeta, (n) => typeof n.props.children === "string").map((n) => n.props.children).join("");
     assert(stoppedText.includes("已停用") && !stoppedText.includes("0 个工具"), "stopped card must not say 0 tools: " + stoppedText);
   });
+  // 「已启用/已停用」这个标签本身就是开关：用户点它时不能什么都不发生。
+  {
+    const calls = [];
+    const labelFace = { ...visFace, setEnabledMcp: async (name, enabled, entryId) => { calls.push({ name, enabled, entryId }); return {}; } };
+    reset(skills, "mcp");
+    const labelView = await mount(labelFace);
+    const stoppedCard = byClass(labelView.section, "MCP_card").find((card) => byClass(card, "MCP_name")[0]?.props.children === "stopped");
+    const label = byClass(stoppedCard, "SKV_switchText")[0];
+    check("停用标签是可点击的开关（不是死文字）", () => {
+      assert(label !== undefined, "state label missing");
+      assert(label.type === "button", "state label must be a button, got " + label.type);
+      assert(typeof label.props.onClick === "function", "state label must toggle");
+    });
+    label.props.onClick();
+    await flush();
+    check("点标签下发 setEnabledMcp", () => {
+      assert(calls.length === 1 && calls[0].name === "stopped" && calls[0].enabled === true, "expected an enable call for stopped, got " + JSON.stringify(calls));
+    });
+    reset(skills, "mcp");
+    view = await mount(visFace);
+  }
   const toolsBtn = findAll(cards()[0], (n) => n.type === "button" && n.props.children === "工具")[0];
   toolsBtn.props.onClick();
   await flush();

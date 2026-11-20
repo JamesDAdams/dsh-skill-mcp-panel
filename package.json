@@ -1,6 +1,6 @@
 {
   "name": "dsh-skill-mcp-panel",
-  "version": "2.5.1",
+  "version": "2.5.2",
   "description": "dsh-skill-mcp-panel fork: manage skills and MCP servers from the DSH web sidebar, with the MCP companion built in (servers mounted by other plugins, persistent switches, per-conversation MCP chip, Tools and System prompt tabs) and the token estimator (composer cost of the next request).",
   "homepage": "https://github.com/JamesDAdams/dsh-skill-mcp-panel#readme",
   "repository": {
